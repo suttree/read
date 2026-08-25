@@ -1,0 +1,3 @@
+module ReadPackageTests {
+    header "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/include/ReadPackageTests-Swift.h"
+}

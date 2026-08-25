@@ -1,0 +1,3 @@
+module ReadCore {
+    header "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/include/ReadCore-Swift.h"
+}

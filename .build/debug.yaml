@@ -1,0 +1,168 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "ReadApp-arm64-apple-macosx-debug.exe": ["<ReadApp-arm64-apple-macosx-debug.exe>"]
+  "ReadApp-arm64-apple-macosx-debug.module": ["<ReadApp-arm64-apple-macosx-debug.module>"]
+  "ReadCore-arm64-apple-macosx-debug.module": ["<ReadCore-arm64-apple-macosx-debug.module>"]
+  "ReadCoreTests-arm64-apple-macosx-debug.module": ["<ReadCoreTests-arm64-apple-macosx-debug.module>"]
+  "ReadPackageTests-arm64-apple-macosx-debug.module": ["<ReadPackageTests-arm64-apple-macosx-debug.module>"]
+  "ReadPackageTests-arm64-apple-macosx-debug.test": ["<ReadPackageTests-arm64-apple-macosx-debug.test>"]
+  "main": ["<ReadApp-arm64-apple-macosx-debug.exe>","<ReadApp-arm64-apple-macosx-debug.module>","<ReadCore-arm64-apple-macosx-debug.module>"]
+  "test": ["<ReadApp-arm64-apple-macosx-debug.exe>","<ReadApp-arm64-apple-macosx-debug.module>","<ReadCore-arm64-apple-macosx-debug.module>","<ReadCoreTests-arm64-apple-macosx-debug.module>","<ReadPackageTests-arm64-apple-macosx-debug.test>"]
+default: "main"
+nodes:
+  "/Users/duncan/src/read/Sources/ReadApp/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/duncan/src/read/Sources/ReadCore/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/duncan/src/read/Tests/ReadCoreTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp":
+    is-mutated: true
+commands:
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp-entitlement.plist"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp-entitlement.plist"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/duncan/src/read/Sources/ReadApp/ArticleFetcher.swift","/Users/duncan/src/read/Sources/ReadApp/HomepageView.swift","/Users/duncan/src/read/Sources/ReadApp/PermalinkView.swift","/Users/duncan/src/read/Sources/ReadApp/ReadApp.swift","/Users/duncan/src/read/Sources/ReadApp/ReadAppModel.swift","/Users/duncan/src/read/Sources/ReadApp/ReaderTheme.swift","/Users/duncan/src/read/Sources/ReadApp/SettingsView.swift","/Users/duncan/src/read/Sources/ReadApp/UnlockView.swift","/Users/duncan/src/read/Sources/ReadApp/VoteIconButton.swift"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/sources"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/sources"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ArticleFetcher.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/HomepageView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/PermalinkView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadApp.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadAppModel.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReaderTheme.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/SettingsView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/UnlockView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/VoteIconButton.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.product/Objects.LinkFileList"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/duncan/src/read/Sources/ReadCore/Article.swift","/Users/duncan/src/read/Sources/ReadCore/EntityExtractor.swift","/Users/duncan/src/read/Sources/ReadCore/NaiveBayesRanker.swift","/Users/duncan/src/read/Sources/ReadCore/PasswordProtectedSecretStore.swift","/Users/duncan/src/read/Sources/ReadCore/SourceStore.swift","/Users/duncan/src/read/Sources/ReadCore/Story.swift","/Users/duncan/src/read/Sources/ReadCore/TrackedSource.swift","/Users/duncan/src/read/Sources/ReadCore/VoteRecord.swift"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/sources"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/sources"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/duncan/src/read/Tests/ReadCoreTests/StoryTests.swift"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/sources"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/sources"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.derived/runner.swift"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/sources"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/sources"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.derived/runner.swift"]
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/StoryTests.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/runner.swift.o"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.product/Objects.LinkFileList"
+
+  "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<ReadApp-arm64-apple-macosx-debug.exe>":
+    tool: phony
+    inputs: ["<ReadApp-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    outputs: ["<ReadApp-arm64-apple-macosx-debug.exe>"]
+
+  "<ReadApp-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ArticleFetcher.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/HomepageView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/PermalinkView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadApp.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadAppModel.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReaderTheme.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/SettingsView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/UnlockView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/VoteIconButton.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadApp.swiftmodule"]
+    outputs: ["<ReadApp-arm64-apple-macosx-debug.module>"]
+
+  "<ReadCore-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule"]
+    outputs: ["<ReadCore-arm64-apple-macosx-debug.module>"]
+
+  "<ReadCoreTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/StoryTests.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCoreTests.swiftmodule"]
+    outputs: ["<ReadCoreTests-arm64-apple-macosx-debug.module>"]
+
+  "<ReadPackageTests-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/runner.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadPackageTests.swiftmodule"]
+    outputs: ["<ReadPackageTests-arm64-apple-macosx-debug.module>"]
+
+  "<ReadPackageTests-arm64-apple-macosx-debug.test>":
+    tool: phony
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.xctest/Contents/MacOS/ReadPackageTests"]
+    outputs: ["<ReadPackageTests-arm64-apple-macosx-debug.test>"]
+
+  "C.ReadApp-arm64-apple-macosx-debug.exe":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ArticleFetcher.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/HomepageView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/PermalinkView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadApp.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadAppModel.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReaderTheme.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/SettingsView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/UnlockView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/VoteIconButton.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.product/Objects.LinkFileList"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/ReadApp"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/duncan/src/read/.build/arm64-apple-macosx/debug","-o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp","-module-name","ReadApp","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_ReadApp_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadApp.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.ReadApp-arm64-apple-macosx-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp-entitlement.plist"]
+    outputs: ["<ReadApp-arm64-apple-macosx-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/ReadApp"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp-entitlement.plist","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp"]
+
+  "C.ReadApp-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/Sources/ReadApp/ArticleFetcher.swift","/Users/duncan/src/read/Sources/ReadApp/HomepageView.swift","/Users/duncan/src/read/Sources/ReadApp/PermalinkView.swift","/Users/duncan/src/read/Sources/ReadApp/ReadApp.swift","/Users/duncan/src/read/Sources/ReadApp/ReadAppModel.swift","/Users/duncan/src/read/Sources/ReadApp/ReaderTheme.swift","/Users/duncan/src/read/Sources/ReadApp/SettingsView.swift","/Users/duncan/src/read/Sources/ReadApp/UnlockView.swift","/Users/duncan/src/read/Sources/ReadApp/VoteIconButton.swift","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/sources"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ArticleFetcher.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/HomepageView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/PermalinkView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadApp.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReadAppModel.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/ReaderTheme.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/SettingsView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/UnlockView.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/VoteIconButton.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadApp.swiftmodule"]
+    description: "Compiling Swift Module 'ReadApp' (9 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ReadApp","-emit-dependencies","-emit-module","-emit-module-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadApp.swiftmodule","-output-file-map","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/output-file-map.json","-incremental","-c","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadApp.build/sources","-I","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","ReadApp_main","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","read","-disable-sandbox"]
+
+  "C.ReadCore-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/Sources/ReadCore/Article.swift","/Users/duncan/src/read/Sources/ReadCore/EntityExtractor.swift","/Users/duncan/src/read/Sources/ReadCore/NaiveBayesRanker.swift","/Users/duncan/src/read/Sources/ReadCore/PasswordProtectedSecretStore.swift","/Users/duncan/src/read/Sources/ReadCore/SourceStore.swift","/Users/duncan/src/read/Sources/ReadCore/Story.swift","/Users/duncan/src/read/Sources/ReadCore/TrackedSource.swift","/Users/duncan/src/read/Sources/ReadCore/VoteRecord.swift","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/sources"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule"]
+    description: "Compiling Swift Module 'ReadCore' (8 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ReadCore","-emit-dependencies","-emit-module","-emit-module-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule","-output-file-map","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/sources","-I","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j8","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/include/ReadCore-Swift.h","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","read","-disable-sandbox"]
+
+  "C.ReadCoreTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/Tests/ReadCoreTests/StoryTests.swift","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/sources"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/StoryTests.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCoreTests.swiftmodule"]
+    description: "Compiling Swift Module 'ReadCoreTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ReadCoreTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCoreTests.swiftmodule","-output-file-map","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/sources","-I","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j8","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-swift-version","6","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","read","-disable-sandbox"]
+
+  "C.ReadPackageTests-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.derived/runner.swift","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCoreTests.swiftmodule","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/sources"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/runner.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadPackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'ReadPackageTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","ReadPackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadPackageTests.swiftmodule","-output-file-map","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/sources","-I","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j8","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/include/ReadPackageTests-Swift.h","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-package-name","read","-disable-sandbox"]
+
+  "C.ReadPackageTests-arm64-apple-macosx-debug.test":
+    tool: shell
+    inputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCoreTests.build/StoryTests.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.build/runner.swift.o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.xctest/Contents/MacOS/ReadPackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/ReadPackageTests.xctest/Contents/MacOS/ReadPackageTests"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/duncan/src/read/.build/arm64-apple-macosx/debug","-o","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.xctest/Contents/MacOS/ReadPackageTests","-module-name","ReadPackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadPackageTests.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCore.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadCoreTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/duncan/src/read/.build/arm64-apple-macosx/debug/Modules/ReadPackageTests.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/duncan/src/read/Sources/ReadApp/","/Users/duncan/src/read/Sources/ReadCore/","/Users/duncan/src/read/Tests/ReadCoreTests/","/Users/duncan/src/read/Package.swift","/Users/duncan/src/read/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

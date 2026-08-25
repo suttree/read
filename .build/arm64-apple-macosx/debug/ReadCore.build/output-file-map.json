@@ -1,0 +1,61 @@
+{
+  "": {
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/primary.swiftdeps"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/Article.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Article.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/EntityExtractor.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/EntityExtractor.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/NaiveBayesRanker.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/NaiveBayesRanker.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/PasswordProtectedSecretStore.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/PasswordProtectedSecretStore.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/SourceStore.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/SourceStore.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/Story.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/Story.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/TrackedSource.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/TrackedSource.dia"
+  },
+  "/Users/duncan/src/read/Sources/ReadCore/VoteRecord.swift": {
+    "dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.d",
+    "object": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swift.o",
+    "swiftmodule": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord~partial.swiftmodule",
+    "swift-dependencies": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.swiftdeps",
+    "diagnostics": "/Users/duncan/src/read/.build/arm64-apple-macosx/debug/ReadCore.build/VoteRecord.dia"
+  }
+}
