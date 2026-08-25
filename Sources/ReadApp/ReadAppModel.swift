@@ -17,6 +17,23 @@ final class ReadAppModel: ObservableObject {
     @Published var isShowingSettings = false
     @Published var path: [ReadRoute] = []
 
+    enum FeedFilter: String {
+        case unread
+        case saved
+        case all
+    }
+
+    @Published var feedFilter: FeedFilter {
+        didSet {
+            UserDefaults.standard.set(feedFilter.rawValue, forKey: Self.feedFilterStorageKey)
+        }
+    }
+
+    /// Which stories have been opened and which have been explicitly saved
+    /// ("hearted") — drives the Unread/Saved/All filter on the homepage.
+    @Published var readStoryIDs: Set<String> = []
+    @Published var savedStoryIDs: Set<String> = []
+
     @Published var theme: ReaderTheme {
         didSet {
             UserDefaults.standard.set(theme.rawValue, forKey: Self.themeStorageKey)
@@ -42,12 +59,20 @@ final class ReadAppModel: ObservableObject {
     private let sourceStore: SourceStore
     private let secretStore: PasswordProtectedSecretStore
     private let voteStore: VoteStore
+    private let readStateStore: ReadStateStore
+    private let articleCacheStore: ArticleCacheStore
     private let fetcher = ArticleFetcher()
+    /// In-memory mirror of the on-disk article cache, capped at the same 100
+    /// most-recent entries — refreshes hit this before ever loading a page,
+    /// since the same front pages (and often the same stories) get pulled
+    /// again on every refresh.
     private var articleCache: [String: Article] = [:]
+    private var articleCacheFetchedAt: [String: Date] = [:]
     private var voteHistory: [VoteRecord] = []
     private var ranker: NaiveBayesRanker
 
     private static let themeStorageKey = "ReadTheme"
+    private static let feedFilterStorageKey = "ReadFeedFilter"
 
     init() {
         let store = FileSourceStore(fileURL: Self.sourcesFileURL())
@@ -55,14 +80,31 @@ final class ReadAppModel: ObservableObject {
         secretStore = PasswordProtectedSecretStore(fileURL: Self.secretFileURL())
         let votes = FileVoteStore(fileURL: Self.votesFileURL())
         voteStore = votes
+        let readState = FileReadStateStore(fileURL: Self.readStateFileURL())
+        readStateStore = readState
+        let articleCacheFile = FileArticleCacheStore(fileURL: Self.articleCacheFileURL())
+        articleCacheStore = articleCacheFile
         sources = (try? store.loadSources()) ?? []
         hasStoredPassword = secretStore.hasStoredPassword
         voteHistory = (try? votes.loadVotes()) ?? []
         ranker = NaiveBayesRanker(votes: voteHistory)
+        let loadedState = (try? readState.loadState()) ?? ReadState()
+        readStoryIDs = Set(loadedState.readIDs)
+        savedStoryIDs = Set(loadedState.savedIDs)
+        let cachedEntries = (try? articleCacheFile.loadEntries()) ?? []
+        for entry in cachedEntries {
+            articleCache[entry.storyURL] = entry.article
+            articleCacheFetchedAt[entry.storyURL] = entry.fetchedAt
+        }
         if let stored = UserDefaults.standard.string(forKey: Self.themeStorageKey), let theme = ReaderTheme(rawValue: stored) {
             self.theme = theme
         } else {
             self.theme = .standard
+        }
+        if let stored = UserDefaults.standard.string(forKey: Self.feedFilterStorageKey), let filter = FeedFilter(rawValue: stored) {
+            self.feedFilter = filter
+        } else {
+            self.feedFilter = .unread
         }
     }
 
@@ -74,6 +116,71 @@ final class ReadAppModel: ObservableObject {
     private static func votesFileURL() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("votes.json")
+    }
+
+    private static func readStateFileURL() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("readState.json")
+    }
+
+    private static func articleCacheFileURL() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("articleCache.json")
+    }
+
+    private func persistReadState() {
+        try? readStateStore.saveState(ReadState(readIDs: Array(readStoryIDs), savedIDs: Array(savedStoryIDs)))
+    }
+
+    private func persistArticleCache() {
+        let entries = articleCache.compactMap { (url, article) -> ArticleCacheEntry? in
+            ArticleCacheEntry(storyURL: url, article: article, fetchedAt: articleCacheFetchedAt[url] ?? Date())
+        }
+        try? articleCacheStore.saveEntries(entries)
+    }
+
+    private func cacheArticle(_ article: Article, for storyURL: String) {
+        articleCache[storyURL] = article
+        articleCacheFetchedAt[storyURL] = Date()
+        persistArticleCache()
+    }
+
+    // MARK: - Read / saved state
+
+    func markRead(_ story: Story) {
+        guard readStoryIDs.insert(story.id).inserted else {
+            return
+        }
+        persistReadState()
+    }
+
+    func toggleRead(_ story: Story) {
+        if readStoryIDs.contains(story.id) {
+            readStoryIDs.remove(story.id)
+        } else {
+            readStoryIDs.insert(story.id)
+        }
+        persistReadState()
+    }
+
+    func toggleSaved(_ story: Story) {
+        if savedStoryIDs.contains(story.id) {
+            savedStoryIDs.remove(story.id)
+        } else {
+            savedStoryIDs.insert(story.id)
+        }
+        persistReadState()
+    }
+
+    func visibleStories(from allStories: [Story]) -> [Story] {
+        switch feedFilter {
+        case .unread:
+            return allStories.filter { !readStoryIDs.contains($0.id) }
+        case .saved:
+            return allStories.filter { savedStoryIDs.contains($0.id) }
+        case .all:
+            return allStories
+        }
     }
 
     // MARK: - Voting
@@ -300,9 +407,30 @@ final class ReadAppModel: ObservableObject {
         let maxConcurrent = 4
         var completed = 0
         var index = 0
-        while index < storiesToEnrich.count {
-            let batchEnd = min(index + maxConcurrent, storiesToEnrich.count)
-            let batch = Array(storiesToEnrich[index..<batchEnd])
+
+        // A cached article from a very recent refresh is still good — skip
+        // straight to filling in the card instead of hitting the network
+        // again for a page that was just fetched.
+        var toFetch: [Story] = []
+        for story in storiesToEnrich {
+            completed += 1
+            if let cached = articleCache[story.storyURL], let idx = stories.firstIndex(where: { $0.id == story.id }) {
+                if cached.bodyText.count < 120 {
+                    continue
+                }
+                if stories[idx].imageURL == nil {
+                    stories[idx].imageURL = cached.imageURL
+                }
+                stories[idx].excerpt = String(cached.bodyText.prefix(1200))
+            } else {
+                toFetch.append(story)
+            }
+        }
+        completed = 0
+
+        while index < toFetch.count {
+            let batchEnd = min(index + maxConcurrent, toFetch.count)
+            let batch = Array(toFetch[index..<batchEnd])
             await withTaskGroup(of: (String, Article?).self) { group in
                 for story in batch {
                     group.addTask { [fetcher] in
@@ -314,21 +442,30 @@ final class ReadAppModel: ObservableObject {
                 }
                 for await (storyID, article) in group {
                     completed += 1
-                    refreshStatus = "Fetching story details… \(completed) of \(storiesToEnrich.count)"
+                    refreshStatus = "Fetching story details… \(completed) of \(toFetch.count)"
                     guard let idx = stories.firstIndex(where: { $0.id == storyID }) else {
                         continue
                     }
                     // Some "headlines" turn out not to be real stories at all
                     // — site-chrome section labels ("Featured Podcasts",
                     // "Upcoming Tech Events") that happened to be marked up
-                    // as headings. If the page it links to doesn't actually
-                    // have substantial article text, it isn't a story —
-                    // drop the card rather than showing an empty one.
-                    guard let article, article.bodyText.count >= 120 else {
+                    // as headings. When the page it links to loads fine but
+                    // yields almost no article text, that's a real signal
+                    // it isn't a story — drop the card. But when the fetch
+                    // itself failed or timed out (a slow page, a blocked
+                    // script), that says nothing about whether it's a real
+                    // story — dropping it there just makes entire sources
+                    // vanish from the feed on a bad network day. Keep the
+                    // card in that case, with its listing title standing in
+                    // for an excerpt.
+                    guard let article else {
+                        continue
+                    }
+                    guard article.bodyText.count >= 120 else {
                         stories.remove(at: idx)
                         continue
                     }
-                    articleCache[stories[idx].storyURL] = article
+                    cacheArticle(article, for: stories[idx].storyURL)
                     if stories[idx].imageURL == nil {
                         stories[idx].imageURL = article.imageURL
                     }
@@ -354,7 +491,7 @@ final class ReadAppModel: ObservableObject {
         }
         let article = await fetcher.fetchArticle(url: url)
         if let article {
-            articleCache[story.storyURL] = article
+            cacheArticle(article, for: story.storyURL)
         }
         return article
     }
@@ -366,6 +503,35 @@ final class ReadAppModel: ObservableObject {
 
     func openStory(_ story: Story) {
         path.append(.story(story.id))
+        forwardPath.removeAll()
+    }
+
+    /// The story immediately before/after `story` in whatever order the
+    /// homepage is currently showing — j/k on the permalink page uses this
+    /// to move to the next or previous story without going back to the list.
+    func adjacentStory(to story: Story, offset: Int) -> Story? {
+        guard let idx = stories.firstIndex(where: { $0.id == story.id }) else {
+            return nil
+        }
+        let newIndex = idx + offset
+        guard stories.indices.contains(newIndex) else {
+            return nil
+        }
+        return stories[newIndex]
+    }
+
+    /// Replaces the current permalink in place rather than pushing a new one
+    /// — j/k browsing through stories one at a time shouldn't build up a
+    /// back-stack of every story passed through along the way.
+    func showAdjacentStory(from story: Story, offset: Int) {
+        guard let next = adjacentStory(to: story, offset: offset) else {
+            return
+        }
+        if path.isEmpty {
+            path.append(.story(next.id))
+        } else {
+            path[path.count - 1] = .story(next.id)
+        }
         forwardPath.removeAll()
     }
 

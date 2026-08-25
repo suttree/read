@@ -11,12 +11,24 @@ import WebKit
 final class ArticleFetcher {
     /// These fetches are throwaway extraction, not browsing — an ephemeral
     /// data store means no cookies or site data persist across launches
-    /// (appropriate for pages you never actually see), and it also avoids a
-    /// macOS Keychain prompt WebKit can trigger for a persistent data
-    /// store's "WebCrypto Master Key" on pages that use `crypto.subtle`.
+    /// (appropriate for pages you never actually see). That alone doesn't
+    /// stop the Keychain prompt, though: WebKit backs `crypto.subtle`'s key
+    /// wrapping with a Keychain item tied to the app's code signature even
+    /// in an ephemeral session, and an ad-hoc dev build's signature changes
+    /// on every rebuild, so macOS re-prompts each time some page's script
+    /// touches it. These webviews never render anything a person sees, so
+    /// there's no reason any page here needs real `crypto.subtle` — this
+    /// script strips it out before any page code runs, which is what
+    /// actually stops the prompt.
     private static func makeHeadlessWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        let disableSubtleCrypto = WKUserScript(
+            source: "try { Object.defineProperty(window.crypto, 'subtle', { value: undefined, configurable: true }); } catch (e) {}",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        configuration.userContentController.addUserScript(disableSubtleCrypto)
         return WKWebView(frame: .zero, configuration: configuration)
     }
 
