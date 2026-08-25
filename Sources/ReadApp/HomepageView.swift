@@ -8,22 +8,27 @@ struct HomepageView: View {
     @State private var currentPage = 0
     private let pageSize = 5
 
-    /// Vim-style h/j navigation between cards on the current page — h moves
-    /// up, j moves down, both scrolling the selected card into view.
+    /// Vim-style j/k navigation between cards on the current page — j moves
+    /// down, k moves up, both scrolling the selected card into view.
     @State private var selectedStoryID: String?
     @FocusState private var isListFocused: Bool
 
+    private var filteredStories: [Story] {
+        model.visibleStories(from: model.stories)
+    }
+
     private var pageCount: Int {
-        max(1, Int(ceil(Double(model.stories.count) / Double(pageSize))))
+        max(1, Int(ceil(Double(filteredStories.count) / Double(pageSize))))
     }
 
     private var pagedStories: [Story] {
+        let stories = filteredStories
         let start = currentPage * pageSize
-        guard start < model.stories.count else {
+        guard start < stories.count else {
             return []
         }
-        let end = min(start + pageSize, model.stories.count)
-        return Array(model.stories[start..<end])
+        let end = min(start + pageSize, stories.count)
+        return Array(stories[start..<end])
     }
 
     var body: some View {
@@ -31,6 +36,9 @@ struct HomepageView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Color.clear.frame(height: 0).id("top")
+
+                    FeedFilterBar(filter: $model.feedFilter)
+                        .padding(.bottom, 20)
 
                     if let error = model.lastRefreshError {
                         Text(error)
@@ -55,7 +63,16 @@ struct HomepageView: View {
                         Text("No stories yet — hit refresh to pull the latest from your tracked sources.")
                             .font(ReaderTheme.sans(14))
                             .foregroundStyle(theme.inkSecondary)
+                    } else if filteredStories.isEmpty {
+                        Text(emptyFilterMessage)
+                            .font(ReaderTheme.sans(14))
+                            .foregroundStyle(theme.inkSecondary)
                     } else {
+                        if currentPage > 0 {
+                            paginationControls
+                                .padding(.bottom, 20)
+                        }
+
                         VStack(spacing: 0) {
                             ForEach(pagedStories) { story in
                                 StoryRow(
@@ -63,15 +80,18 @@ struct HomepageView: View {
                                     isEnriching: story.excerpt == nil && model.isRefreshing,
                                     isSelected: story.id == selectedStoryID,
                                     voteState: model.votedStoryIDs[story.id],
+                                    isSaved: model.savedStoryIDs.contains(story.id),
                                     select: { model.openStory(story) },
-                                    vote: { isUpvote in model.vote(story, isUpvote: isUpvote) }
+                                    vote: { isUpvote in model.vote(story, isUpvote: isUpvote) },
+                                    toggleSaved: { model.toggleSaved(story) }
                                 )
                                 .id(story.id)
                             }
                         }
 
-                        if model.stories.count > pageSize {
+                        if filteredStories.count > pageSize {
                             paginationControls
+                                .padding(.top, 20)
                         }
                     }
                 }
@@ -101,10 +121,17 @@ struct HomepageView: View {
                     scrollProxy.scrollTo("top", anchor: .top)
                 }
             }
+            .onChange(of: model.feedFilter) {
+                currentPage = 0
+                selectedStoryID = nil
+                withAnimation {
+                    scrollProxy.scrollTo("top", anchor: .top)
+                }
+            }
         }
         .background(theme.texturedPaper)
         .preferredColorScheme(.light)
-        .navigationTitle("Read")
+        .navigationTitle("")
         .toolbarBackground(theme.headerTint, for: .windowToolbar)
         .onChange(of: model.isRefreshing) {
             if model.isRefreshing {
@@ -120,6 +147,9 @@ struct HomepageView: View {
                     Text("Read")
                         .font(ReaderTheme.serif(15, weight: .semibold))
                         .foregroundStyle(theme.ink)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Back to the top of page 1")
@@ -162,7 +192,7 @@ struct HomepageView: View {
         case "j":
             moveSelection(by: 1, proxy: proxy)
             return .handled
-        case "h":
+        case "k":
             moveSelection(by: -1, proxy: proxy)
             return .handled
         default:
@@ -204,6 +234,17 @@ struct HomepageView: View {
         .padding(.top, 20)
     }
 
+    private var emptyFilterMessage: String {
+        switch model.feedFilter {
+        case .unread:
+            return "You're all caught up — nothing unread right now."
+        case .saved:
+            return "Nothing saved yet — tap the heart on a story to keep it here."
+        case .all:
+            return "No stories yet — hit refresh to pull the latest from your tracked sources."
+        }
+    }
+
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Nothing tracked yet")
@@ -229,8 +270,10 @@ private struct StoryRow: View {
     let isEnriching: Bool
     let isSelected: Bool
     let voteState: Bool?
+    let isSaved: Bool
     let select: () -> Void
     let vote: (Bool) -> Void
+    let toggleSaved: () -> Void
 
     @Environment(\.readerTheme) private var theme
 
@@ -242,7 +285,7 @@ private struct StoryRow: View {
                 .frame(width: 54, alignment: .trailing)
                 .padding(.top, 20)
 
-            TimelineRail(voteState: voteState, vote: vote)
+            TimelineRail(voteState: voteState, isSaved: isSaved, vote: vote, toggleSaved: toggleSaved)
                 .frame(width: 26)
 
             Button(action: select) {
@@ -308,7 +351,9 @@ private struct StoryRow: View {
 /// separate control bolted onto the side.
 private struct TimelineRail: View {
     let voteState: Bool?
+    let isSaved: Bool
     let vote: (Bool) -> Void
+    let toggleSaved: () -> Void
 
     @Environment(\.readerTheme) private var theme
 
@@ -326,10 +371,44 @@ private struct TimelineRail: View {
                 VoteIconButton(systemName: "chevron.down.circle", isActive: voteState == false) {
                     vote(false)
                 }
+                VoteIconButton(systemName: "heart", isActive: isSaved) {
+                    toggleSaved()
+                }
+                .padding(.top, 4)
             }
             .padding(.top, 14)
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+/// Unread / Saved / All — filters the feed without discarding stories from
+/// `model.stories`, so switching tabs is instant and doesn't need a refetch.
+private struct FeedFilterBar: View {
+    @Binding var filter: ReadAppModel.FeedFilter
+    @Environment(\.readerTheme) private var theme
+
+    private let options: [(ReadAppModel.FeedFilter, String)] = [
+        (.unread, "Unread"), (.saved, "Saved"), (.all, "All")
+    ]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.0) { option, title in
+                Button {
+                    filter = option
+                } label: {
+                    Text(title)
+                        .font(ReaderTheme.sans(12, weight: .semibold))
+                        .foregroundStyle(filter == option ? theme.ink : theme.inkSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(filter == option ? theme.paperInset : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 

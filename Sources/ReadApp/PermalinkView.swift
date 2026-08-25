@@ -9,6 +9,7 @@ struct PermalinkView: View {
     @State private var article: Article?
     @State private var isLoadingArticle = false
     @State private var articleLoadFailed = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -37,12 +38,19 @@ struct PermalinkView: View {
                 } else if let article {
                     HStack(spacing: 10) {
                         Rectangle().fill(theme.rule).frame(height: 1)
-                        VoteIconButton(systemName: "chevron.up.circle", isActive: model.votedStoryIDs[story.id] == true) {
-                            model.vote(story, isUpvote: true)
+                        HStack(spacing: 10) {
+                            VoteIconButton(systemName: "chevron.up.circle", isActive: model.votedStoryIDs[story.id] == true) {
+                                model.vote(story, isUpvote: true)
+                            }
+                            VoteIconButton(systemName: "chevron.down.circle", isActive: model.votedStoryIDs[story.id] == false) {
+                                model.vote(story, isUpvote: false)
+                            }
+                            VoteIconButton(systemName: "heart", isActive: model.savedStoryIDs.contains(story.id)) {
+                                model.toggleSaved(story)
+                            }
                         }
-                        VoteIconButton(systemName: "chevron.down.circle", isActive: model.votedStoryIDs[story.id] == false) {
-                            model.vote(story, isUpvote: false)
-                        }
+                        .layoutPriority(1)
+                        Rectangle().fill(theme.rule).frame(height: 1)
                     }
                     Text(article.bodyText)
                         .font(ReaderTheme.serif(16))
@@ -75,13 +83,54 @@ struct PermalinkView: View {
                     Text("Read")
                         .font(ReaderTheme.serif(15, weight: .semibold))
                         .foregroundStyle(theme.ink)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Back to the top of page 1")
             }
         }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($isFocused)
+        .onKeyPress { press in
+            handleKeyPress(press)
+        }
+        .onAppear {
+            isFocused = true
+            model.markRead(story)
+        }
         .task {
             await loadArticle()
+        }
+    }
+
+    /// j/k step to the next/previous story without returning to the list,
+    /// h toggles this story's read/unread status, l toggles saved, and
+    /// Backspace jumps straight back to the feed — a story's own page acts
+    /// as a mini reading session rather than a one-off page you always have
+    /// to go back to the list from.
+    private func handleKeyPress(_ press: KeyPress) -> KeyPress.Result {
+        switch press.characters {
+        case "j":
+            model.showAdjacentStory(from: story, offset: 1)
+            return .handled
+        case "k":
+            model.showAdjacentStory(from: story, offset: -1)
+            return .handled
+        case "h":
+            model.toggleRead(story)
+            return .handled
+        case "l":
+            model.toggleSaved(story)
+            return .handled
+        default:
+            if press.key == .delete {
+                model.goBack()
+                return .handled
+            }
+            return .ignored
         }
     }
 
