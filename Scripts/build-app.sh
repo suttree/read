@@ -20,6 +20,11 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$ROOT_DIR/.build/debug/ReadApp" "$MACOS_DIR/Read"
 chmod +x "$MACOS_DIR/Read"
 
+RESOURCE_BUNDLE="$ROOT_DIR/.build/debug/Read_ReadApp.bundle"
+if [[ -d "$RESOURCE_BUNDLE" ]]; then
+  cp -R "$RESOURCE_BUNDLE" "$APP_DIR/Read_ReadApp.bundle"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"

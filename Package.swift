@@ -15,7 +15,10 @@ let package = Package(
         .target(name: "ReadCore"),
         .executableTarget(
             name: "ReadApp",
-            dependencies: ["ReadCore"]
+            dependencies: ["ReadCore"],
+            resources: [
+                .copy("Resources")
+            ]
         ),
         .testTarget(
             name: "ReadCoreTests",

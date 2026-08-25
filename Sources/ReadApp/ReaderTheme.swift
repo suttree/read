@@ -154,13 +154,20 @@ private struct PolkaDotTexture: View {
     }
 }
 
-/// Generates and applies a flat, solid-color squircle app icon per theme —
-/// a stand-in until there's real hand-drawn artwork, matching Fork's
-/// icon-variant mechanism (including persisting the choice across
-/// relaunches, since an icon override is otherwise just an in-memory
-/// NSApplication property macOS has no reason to remember on its own).
+/// Generates and applies a theme-colored squircle app icon with the app's
+/// hand-drawn open-book artwork on top (recolored to white, matching Fork's
+/// two-tone flat-icon style), persisting the choice across relaunches since
+/// an icon override is otherwise just an in-memory NSApplication property
+/// macOS has no reason to remember on its own.
 enum AppIconTheming {
     private static let storageKey = "ReadThemeIconVariant"
+
+    private static let artwork: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }()
 
     @MainActor
     static func apply(_ theme: ReaderTheme) {
@@ -186,11 +193,54 @@ enum AppIconTheming {
         defer { image.unlockFocus() }
 
         let inset = size * 0.06
-        let rect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
-        let path = NSBezierPath(roundedRect: rect, xRadius: rect.width * 0.22, yRadius: rect.height * 0.22)
+        let squircleRect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
+        let path = NSBezierPath(roundedRect: squircleRect, xRadius: squircleRect.width * 0.22, yRadius: squircleRect.height * 0.22)
         color.setFill()
         path.fill()
 
+        if let artwork, let tinted = tintedArtwork(artwork, tint: .white, fillFraction: 0.74, in: squircleRect.size) {
+            let drawRect = NSRect(
+                x: squircleRect.midX - tinted.size.width / 2,
+                y: squircleRect.midY - tinted.size.height / 2,
+                width: tinted.size.width,
+                height: tinted.size.height
+            )
+            tinted.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+        }
+
         return image
+    }
+
+    /// Recolors the artwork's opaque pixels to `tint` (the classic
+    /// "template image" trick: paint the source, then fill with
+    /// `.sourceAtop` so only pixels the artwork already made opaque get
+    /// covered) — done on its own transparent image first, rather than
+    /// directly on the squircle background. Doing it directly on the
+    /// squircle doesn't work: that background is already fully opaque, so
+    /// `.sourceAtop` there matches every pixel in the draw rect, not just
+    /// the artwork's silhouette, painting a solid tinted square instead of
+    /// the artwork's shape.
+    private static func tintedArtwork(_ artwork: NSImage, tint: NSColor, fillFraction: CGFloat, in bounds: NSSize) -> NSImage? {
+        let artworkAspect = artwork.size.width / max(artwork.size.height, 1)
+        let targetWidth: CGFloat
+        let targetHeight: CGFloat
+        if artworkAspect >= 1 {
+            targetWidth = bounds.width * fillFraction
+            targetHeight = targetWidth / artworkAspect
+        } else {
+            targetHeight = bounds.height * fillFraction
+            targetWidth = targetHeight * artworkAspect
+        }
+
+        let result = NSImage(size: NSSize(width: targetWidth, height: targetHeight))
+        result.lockFocus()
+        artwork.draw(in: NSRect(x: 0, y: 0, width: targetWidth, height: targetHeight), from: .zero, operation: .sourceOver, fraction: 1.0)
+        let context = NSGraphicsContext.current
+        context?.compositingOperation = .sourceAtop
+        tint.setFill()
+        NSBezierPath(rect: NSRect(x: 0, y: 0, width: targetWidth, height: targetHeight)).fill()
+        context?.compositingOperation = .sourceOver
+        result.unlockFocus()
+        return result
     }
 }
