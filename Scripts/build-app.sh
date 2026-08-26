@@ -6,6 +6,8 @@ APP_DIR="$ROOT_DIR/.build/Read.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+ICONSET_DIR="$ROOT_DIR/.build/Read.iconset"
+ICON_SOURCE="$ROOT_DIR/Assets/noun-candle-4420273.png"
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$ROOT_DIR/.build/clang-module-cache}"
@@ -19,6 +21,15 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$ROOT_DIR/.build/debug/ReadApp" "$MACOS_DIR/Read"
 chmod +x "$MACOS_DIR/Read"
+
+rm -rf "$ICONSET_DIR"
+mkdir -p "$ICONSET_DIR"
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}.png" >/dev/null
+  double_size=$((size * 2))
+  sips -z "$double_size" "$double_size" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/ReadIcon.icns"
 
 RESOURCE_BUNDLE="$ROOT_DIR/.build/debug/Read_ReadApp.bundle"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
@@ -39,6 +50,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <string>Read</string>
   <key>CFBundleIdentifier</key>
   <string>app.read.prototype</string>
+  <key>CFBundleIconFile</key>
+  <string>ReadIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
