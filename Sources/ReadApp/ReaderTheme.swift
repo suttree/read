@@ -89,13 +89,9 @@ struct ReaderTheme: Identifiable, Hashable {
         explicitStyle ?? .stripes(accents.map(\.nsColor))
     }
 
-    /// App icons use two broad colour fields for every theme except Rainbow,
-    /// whose stripes are the point of the palette.
+    /// App icons use the palette midpoint as a quiet solid background.
     var iconStyle: ThemePatternStyle {
-        if id == "rainbow" {
-            return .stripes(accents.map(\.nsColor))
-        }
-        return .twoTone([accents.first?.nsColor ?? .white, accents.last?.nsColor ?? .black])
+        return .solid(accents[accents.count / 2].nsColor)
     }
 
     /// What the title bar gets, which is not always what the icon gets.
@@ -399,9 +395,8 @@ private struct PolkaDotTexture: View {
     }
 }
 
-/// Generates and applies a themed app icon: two broad diagonal colour fields,
-/// with Rainbow retaining its bold diagonal bands, and the winning candle
-/// artwork laid over the top.
+/// Generates and applies a themed app icon: a solid midpoint colour with the
+/// winning candle artwork embossed over the top.
 /// Persisted across relaunches since an icon override is otherwise just an
 /// in-memory NSApplication property macOS has no reason to remember on its
 /// own.
@@ -486,7 +481,7 @@ enum AppIconTheming {
         }
         let artSize = NSSize(width: targetWidth, height: targetHeight)
 
-        let offset = max(targetWidth, targetHeight) * 0.014
+        let offset = max(targetWidth, targetHeight) * 0.018
         let margin = offset * 3
         let canvasSize = NSSize(width: targetWidth + margin * 2, height: targetHeight + margin * 2)
         let origin = NSPoint(x: margin, y: margin)
@@ -499,8 +494,8 @@ enum AppIconTheming {
 
         let result = NSImage(size: canvasSize)
         result.lockFocus()
-        highlight.draw(at: NSPoint(x: origin.x - offset, y: origin.y + offset), from: .zero, operation: .sourceOver, fraction: 0.6)
-        shadow.draw(at: NSPoint(x: origin.x + offset, y: origin.y - offset), from: .zero, operation: .sourceOver, fraction: 0.5)
+        highlight.draw(at: NSPoint(x: origin.x - offset, y: origin.y + offset), from: .zero, operation: .sourceOver, fraction: 0.8)
+        shadow.draw(at: NSPoint(x: origin.x + offset, y: origin.y - offset), from: .zero, operation: .sourceOver, fraction: 0.65)
         main.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
         result.unlockFocus()
         return result
