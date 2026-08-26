@@ -1,4 +1,5 @@
 import ReadCore
+import AppKit
 import SwiftUI
 
 struct HomepageView: View {
@@ -524,6 +525,13 @@ private struct StoryRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .onHover { hovering in
+                    if hovering {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
                 // Only visible in All — Feed drops a read story rather than
                 // showing it — where it answers "have I seen this" without
                 // needing its own tab to do it.
