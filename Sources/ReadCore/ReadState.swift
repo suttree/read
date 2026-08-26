@@ -1,15 +1,15 @@
 import Foundation
 
-/// Which stories have been opened (read) and which have been explicitly
-/// saved ("hearted") for later — persisted separately from votes, since
-/// read/saved status is about triage, not training signal for the ranker.
+/// Which stories have been opened — the one thing Feed needs beyond its own
+/// ranking. A story you've read no longer belongs in the queue, but reading it
+/// isn't an opinion about it, so this is deliberately separate from
+/// `VoteRecord`: unliking a story you've read would train the ranker on a
+/// rating you never actually gave.
 public struct ReadState: Codable, Sendable {
-    public var readIDs: [String]
-    public var savedIDs: [String]
+    public let readIDs: [String]
 
-    public init(readIDs: [String] = [], savedIDs: [String] = []) {
+    public init(readIDs: [String] = []) {
         self.readIDs = readIDs
-        self.savedIDs = savedIDs
     }
 }
 

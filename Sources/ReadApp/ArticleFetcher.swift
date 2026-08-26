@@ -12,24 +12,120 @@ final class ArticleFetcher {
     /// These fetches are throwaway extraction, not browsing — an ephemeral
     /// data store means no cookies or site data persist across launches
     /// (appropriate for pages you never actually see). That alone doesn't
-    /// stop the Keychain prompt, though: WebKit backs `crypto.subtle`'s key
-    /// wrapping with a Keychain item tied to the app's code signature even
-    /// in an ephemeral session, and an ad-hoc dev build's signature changes
-    /// on every rebuild, so macOS re-prompts each time some page's script
-    /// touches it. These webviews never render anything a person sees, so
-    /// there's no reason any page here needs real `crypto.subtle` — this
-    /// script strips it out before any page code runs, which is what
-    /// actually stops the prompt.
+    /// stop the Keychain prompt, though: WebKit wraps WebCrypto keys with a
+    /// Keychain item tied to the app's code signature even in an ephemeral
+    /// session, and an ad-hoc dev build's signature changes on every rebuild,
+    /// so macOS re-prompts each time some page's script touches it. WebKit
+    /// exposes no API to supply that key ourselves, so the only lever is
+    /// keeping pages away from WebCrypto in the first place.
+    ///
+    /// Note the two things this deliberately does beyond hiding
+    /// `window.crypto.subtle`, both of which were letting the prompt through:
+    /// it defines the override on `Crypto.prototype` as well, since a page
+    /// can reach a `Crypto` instance the frame's own `crypto` shadowing
+    /// doesn't cover; and it hands back a stub whose every method returns a
+    /// rejected promise rather than `undefined`, so a script reaching for
+    /// `crypto.subtle.importKey` fails its own call instead of throwing a
+    /// TypeError partway through rendering the article we came for.
+    ///
+    /// Workers go too, and this is the part that actually stops the Keychain
+    /// prompt. A user script does not run inside a worker, so a worker's
+    /// `crypto.subtle` is the real one and no page-level override can reach
+    /// it — Reuters and Ars both spin up blob workers, which is where the
+    /// prompt was still coming from after the override above went in. They're
+    /// replaced with inert stubs rather than removed: a page that calls
+    /// `new Worker(...)` and gets a TypeError may abandon the render, while
+    /// one whose worker simply never answers usually carries on and leaves the
+    /// article text sitting in the DOM, which is all this is here for.
+    private static let webCryptoBlockerSource = """
+    (function () {
+      try {
+        var deny = function () {
+          return Promise.reject(new DOMException('Disabled', 'NotSupportedError'));
+        };
+        var stub = new Proxy({}, { get: function () { return deny; } });
+        var hide = function (target) {
+          try {
+            Object.defineProperty(target, 'subtle', {
+              get: function () { return stub; },
+              configurable: true
+            });
+          } catch (e) {}
+        };
+        if (self.Crypto && self.Crypto.prototype) { hide(self.Crypto.prototype); }
+        if (self.crypto) { hide(self.crypto); }
+        if (self.navigator && self.navigator.serviceWorker) {
+          try { self.navigator.serviceWorker.register = deny; } catch (e) {}
+        }
+
+        var inert = function () {
+          return {
+            postMessage: function () {},
+            terminate: function () {},
+            addEventListener: function () {},
+            removeEventListener: function () {},
+            dispatchEvent: function () { return false; },
+            onmessage: null,
+            onmessageerror: null,
+            onerror: null,
+            port: {
+              postMessage: function () {},
+              start: function () {},
+              close: function () {},
+              addEventListener: function () {},
+              removeEventListener: function () {}
+            }
+          };
+        };
+        try { self.Worker = function () { return inert(); }; } catch (e) {}
+        try { self.SharedWorker = function () { return inert(); }; } catch (e) {}
+      } catch (e) {}
+    })();
+    """
+
+    /// Headless doesn't mean sizeless. A zero-frame webview still loads and
+    /// still runs scripts, but it lays out into a 0×0 viewport, and two things
+    /// fall off a cliff when it does: `innerText` — which every extraction
+    /// script here depends on — reports nothing for elements that aren't being
+    /// rendered, and responsive stylesheets collapse to their narrowest
+    /// breakpoint, which on plenty of sites means hiding the main content
+    /// outright. Pinboard came back with 273 anchors and 240 characters of
+    /// text, all of it nav and footer, until this had a real size.
+    private static let viewport = NSRect(x: 0, y: 0, width: 1280, height: 1600)
+
+    /// WebKit's stock user agent stops at "AppleWebKit/605.1.15 (KHTML, like
+    /// Gecko)" — no `Version/… Safari/…` on the end, which is a reliable
+    /// tell that a page is being loaded by an embedded webview rather than by
+    /// Safari. Reddit answers that UA with an empty shell: HTTP 200, correct
+    /// title, zero anchors. Completing the string the way Safari sends it
+    /// gets the real page.
+    private static let safariUserAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
+
+    /// Shared across every headless webview this fetcher creates. Left
+    /// unset, each `WKWebViewConfiguration` gets its own process pool and
+    /// WebKit spins up a brand-new WebContent process per fetch — a refresh
+    /// that touches a few dozen story pages was launching a few dozen
+    /// processes, fighting each other for CPU on top of whatever each page's
+    /// own load actually cost. Safe to share for throwaway extraction views
+    /// that render nothing on screen: `.nonPersistent()` on the data store
+    /// below is what isolates cookies and storage between fetches, not the
+    /// process pool.
+    private static let processPool = WKProcessPool()
+
     private static func makeHeadlessWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        configuration.processPool = processPool
         configuration.websiteDataStore = .nonPersistent()
-        let disableSubtleCrypto = WKUserScript(
-            source: "try { Object.defineProperty(window.crypto, 'subtle', { value: undefined, configurable: true }); } catch (e) {}",
+        let blockWebCrypto = WKUserScript(
+            source: webCryptoBlockerSource,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         )
-        configuration.userContentController.addUserScript(disableSubtleCrypto)
-        return WKWebView(frame: .zero, configuration: configuration)
+        configuration.userContentController.addUserScript(blockWebCrypto)
+        let webView = WKWebView(frame: viewport, configuration: configuration)
+        webView.customUserAgent = safariUserAgent
+        return webView
     }
 
     /// Up to `limit` headline-level stories from a tracked source's front
@@ -79,14 +175,62 @@ final class ArticleFetcher {
                 'manage your data', 'manage preferences', 'manage cookies', 'cookie preferences',
                 'cookie policy', 'cookie settings', 'privacy policy', 'privacy settings',
                 'terms of service', 'terms of use', 'sign up', 'sign in', 'log in', 'subscribe',
-                'newsletter', 'accept all', 'accept cookies'
+                'newsletter', 'accept all', 'accept cookies',
+                // Consent dialogs phrase themselves this way as often as they
+                // mention cookies outright — Ars serves one whose heading is
+                // "We and our partners process data for the following purposes".
+                'we and our partners', 'process data', 'we value your privacy',
+                // Site chrome that reads like a headline: logo links ("Ars
+                // Technica homepage"), skip links, and ad slots.
+                'homepage', 'skip to content', 'skip to main content',
+                'advertisement', 'sponsored', 'all rights reserved', 'go to comments',
+                // Reddit's footer locale links. Its footer isn't a <footer>
+                // and carries no class the selector below can catch, so the
+                // text is the only handle on them.
+                'best of reddit'
             ];
+            var chromeSelector = 'nav, header, footer, aside, [class*="cookie" i], [id*="cookie" i], [class*="consent" i], [id*="consent" i], [class*="onetrust" i], [id*="onetrust" i], [class*="promoted" i], [id*="promoted" i], [class*="sponsored" i], [class*="footer" i], [id*="footer" i]';
             function isBoilerplate(el) {
-                return el.closest('nav, header, footer, aside, [class*="cookie" i], [id*="cookie" i], [class*="consent" i], [id*="consent" i], [class*="onetrust" i], [id*="onetrust" i]') !== null;
+                var hit = el.closest(chromeSelector);
+                // Consent libraries stamp state classes onto <body> — Ars
+                // carries `fides-overlay-modal-link-shown` there — which would
+                // otherwise mark every heading on the page as boilerplate.
+                return hit !== null && hit !== document.body && hit !== document.documentElement;
             }
             function isBoilerplateText(text) {
                 var lower = text.toLowerCase();
                 return boilerplatePhrases.some(function(phrase) { return lower.indexOf(phrase) !== -1; });
+            }
+            function wordCount(text) {
+                return text.split(/\\s+/).filter(function(w) { return w.length > 0; }).length;
+            }
+            /// Titles that are structurally not stories, whatever the site.
+            function isJunkTitle(text) {
+                if (isBoilerplateText(text)) return true;
+                // A bare domain is an attribution label sitting beside the real
+                // headline — Hacker News prints the source domain after every
+                // title, and Bubbles does the same in parentheses.
+                if (/^[a-z0-9][a-z0-9.-]*\\.[a-z]{2,}$/i.test(text)) return true;
+                // Comment-count links: the Verge renders them as
+                // "CommentsComment Icon Bubble14", which has no word boundary
+                // after the first word to anchor against. Matching the plural
+                // leaves a headline opening with "Commentary" alone.
+                if (/^comments/i.test(text)) return true;
+                // Fediverse and X handles, which aggregators list as the
+                // discussion source next to a story.
+                if (/^@/.test(text)) return true;
+                // Reddit's user and subreddit chips.
+                if (/^[ur]\\/\\S+$/i.test(text)) return true;
+                return false;
+            }
+            /// Links that never point at a story, however their text reads.
+            function isJunkLink(href) {
+                if (!href) return true;
+                if (/\\/(user|users|u)\\//i.test(href)) return true;
+                if (/\\/(login|signup|sign-up|register|submit|settings|preferences)(\\/|$|\\?)/i.test(href)) return true;
+                // Reddit serves its promoted posts off alb.reddit.com, and the
+                // usual ad networks are worth naming while we're here.
+                return /(alb\\.reddit\\.com|doubleclick\\.net|googlesyndication\\.com|amazon-adsystem\\.com|taboola\\.com|outbrain\\.com)/i.test(href);
             }
             function titleOf(h) {
                 var headlineEl = h.querySelector('[class*="headline" i]');
@@ -118,6 +262,7 @@ final class ArticleFetcher {
             }
 
             var seen = {};
+            var seenURL = {};
             var out = [];
 
             // Tier 1: proper headline markup (news homepages with real
@@ -128,11 +273,25 @@ final class ArticleFetcher {
                 if (isBoilerplate(h)) continue;
                 var text = titleOf(h);
                 if (text.length < 15 || text.length > 160) continue;
-                if (isBoilerplateText(text)) continue;
+                // Real headlines are sentences; the headings that aren't
+                // stories are almost always two- or three-word noun phrases —
+                // "Featured Podcasts", "Upcoming Tech Events", "Community
+                // highlights", "Ars Technica homepage". Requiring four words
+                // separates them without needing to know any site's markup,
+                // and on aggregators it clears tier 1 out of the way so the
+                // link scan below can find the actual stories.
+                if (wordCount(text) < 4) continue;
+                if (isJunkTitle(text)) continue;
                 if (seen[text]) continue;
                 var found = findLink(h);
                 if (!found) continue;
+                if (isJunkLink(found.link.href)) continue;
+                // Reddit lists a post's title on its own and again with the
+                // vote and comment counts appended; same link, so dedupe on
+                // that rather than on the text.
+                if (seenURL[found.link.href]) continue;
                 seen[text] = true;
+                seenURL[found.link.href] = true;
                 out.push({ title: text, url: found.link.href, image: findImage(found.container) });
             }
 
@@ -140,7 +299,7 @@ final class ArticleFetcher {
             // Bubbles, Reddit) that list stories as plain <a> links with no
             // heading markup at all. Only kicks in when tier 1 found
             // basically nothing, since it's a much cruder heuristic.
-            if (out.length < 2) {
+            if (out.length < 3) {
                 var anchors = queryAllDeep('a[href]');
                 for (var j = 0; j < anchors.length && out.length < \(limit); j++) {
                     var a = anchors[j];
@@ -149,14 +308,28 @@ final class ArticleFetcher {
                     if (href.indexOf('mailto:') === 0 || href.indexOf('tel:') === 0 || href.indexOf('javascript:') === 0 || href.indexOf('#') === 0) continue;
                     var linkText = a.innerText.trim().replace(/\\s+/g, ' ');
                     if (linkText.length < 15 || linkText.length > 160) continue;
+                    // Aggregators print the discussion source beside each
+                    // story — "Daring Fireball", "MacRumors Forums", "Contact
+                    // Editors". Two-word links are nearly always one of those;
+                    // three is low enough to keep real short titles like
+                    // "Thinking in Python" and "Stupid Summer People".
+                    if (wordCount(linkText) < 3) continue;
+                    // A link inside a paragraph is a citation in someone's
+                    // prose, not an entry in a list of stories — the Verge's
+                    // front page carries liveblog copy whose inline links
+                    // otherwise read as headlines.
+                    if (a.closest('p')) continue;
                     // A title wrapped in parens is almost always a source
                     // attribution link sitting right next to the real one
                     // (Bubbles does exactly this), not a story itself.
                     if (linkText.charAt(0) === '(' && linkText.charAt(linkText.length - 1) === ')') continue;
-                    if (isBoilerplateText(linkText)) continue;
+                    if (isJunkTitle(linkText)) continue;
                     if (seen[linkText]) continue;
                     if (!a.href) continue;
+                    if (isJunkLink(a.href)) continue;
+                    if (seenURL[a.href]) continue;
                     seen[linkText] = true;
+                    seenURL[a.href] = true;
                     out.push({ title: linkText, url: a.href, image: findImage(a) });
                 }
             }
@@ -193,8 +366,23 @@ final class ArticleFetcher {
             // too, and often sit ahead of the real article in DOM order —
             // without this, "the first few paragraphs" can just be consent
             // legalese instead of the story.
-            function isBoilerplate(el) {
-                return el.closest('nav, header, footer, aside, [class*="cookie" i], [id*="cookie" i], [class*="consent" i], [id*="consent" i], [class*="onetrust" i], [id*="onetrust" i], [class*="gdpr" i], [id*="gdpr" i], [class*="fides" i], [id*="fides" i]') !== null;
+            //
+            // The body/documentElement guard is essential, not defensive:
+            // consent libraries stamp their state onto <body> as a class, so
+            // Ars ships every article with `fides-overlay-modal-link-shown`
+            // on the body element. Matched naively, that marks *every*
+            // paragraph on the page as consent boilerplate and the article
+            // comes back empty — which is exactly what Ars did.
+            var consentSelector = '[class*="cookie" i], [id*="cookie" i], [class*="consent" i], [id*="consent" i], [class*="onetrust" i], [id*="onetrust" i], [class*="gdpr" i], [id*="gdpr" i], [class*="fides" i], [id*="fides" i]';
+            function isConsentContainer(el) {
+                var hit = el.closest(consentSelector);
+                return hit !== null && hit !== document.body && hit !== document.documentElement;
+            }
+            // Page furniture. Only meaningful outside the article itself: a
+            // story's own <header> holds its standfirst, which is text we
+            // want, so this is skipped once a specific article root is found.
+            function isChrome(el) {
+                return el.closest('nav, header, footer, aside') !== null;
             }
             var consentPhrases = [
                 'we process your data', 'legitimate interest', 'transparency and consent framework',
@@ -206,23 +394,132 @@ final class ArticleFetcher {
                 return consentPhrases.some(function(phrase) { return lower.indexOf(phrase) !== -1; });
             }
 
+            // Promotional and recirculation copy that sites append after the
+            // story proper: a newsletter pitch, then one-line teasers for
+            // unrelated articles. Only treated as a marker in a short
+            // paragraph — a story genuinely about newsletters shouldn't be
+            // truncated at the word.
+            var promoMarkers = [
+                'subscribe and interact', 'sign up for our', 'sign up to our',
+                'get up to date with our', 'newsletter', 'follow us on',
+                'this article originally appeared', 'all rights reserved',
+                'terms of use', 'privacy policy', 'daily digest'
+            ];
+            function isPromo(text) {
+                if (text.length > 240) return false;
+                var lower = text.toLowerCase();
+                return promoMarkers.some(function(marker) { return lower.indexOf(marker) !== -1; });
+            }
+
+            function paragraphsIn(roots, trusted) {
+                var found = [];
+                roots.forEach(function(root) {
+                    Array.prototype.push.apply(found, Array.from(root.querySelectorAll('p')));
+                });
+                return found
+                    .filter(function(p) { return !isConsentContainer(p) && (trusted || !isChrome(p)); })
+                    .map(function(p) { return p.innerText.trim(); })
+                    .filter(function(t) { return t.length > 40 && !isConsentText(t); });
+            }
+
+            // The narrowest container that actually holds the story. This used
+            // to be the selector list 'article p, main p, p', which reads as a
+            // fallback chain but is really a union: the bare `p` matched every
+            // paragraph on the page, so each article arrived with the site's
+            // "more stories" teasers glued onto the end of it. Trying the
+            // candidates in order and stopping at the first with real body text
+            // keeps the tail out instead.
             var h1 = document.querySelector('h1');
             var titleText = h1 ? h1.innerText.trim() : document.title;
-            var paragraphs = Array.from(document.querySelectorAll('article p, main p, p'))
-                .filter(function(p) { return !isBoilerplate(p); })
-                .map(function(p) { return p.innerText.trim(); })
-                .filter(function(t) { return t.length > 40 && !isConsentText(t); });
+            // Roots paired with whether they're specific enough to trust:
+            // a named article container or the <article> holding the headline
+            // is the story itself, so its <header> is part of the story. A
+            // bare <main> or the whole body is not, and keeps the filter.
+            var roots = [];
+            // All of them, not the first: the Verge splits a post into one
+            // `duet--article--article-body-component` div per block, so
+            // querySelector finds a container holding a single paragraph and
+            // the search falls through to a root wide enough to sweep in the
+            // next post down the page.
+            var named = Array.from(document.querySelectorAll('[itemprop="articleBody"], [class*="article-body" i], [class*="articlebody" i], [class*="post-content" i], [class*="entry-content" i], [class*="story-body" i]'));
+            if (named.length) roots.push({ els: named, trusted: true });
+            // The <article> holding the headline is the story; the others on
+            // the page are teaser cards for something else.
+            var articles = Array.from(document.querySelectorAll('article'));
+            var owning = h1 ? articles.filter(function(a) { return a.contains(h1); })[0] : null;
+            if (owning) roots.push({ els: [owning], trusted: true });
+            if (articles.length === 1) roots.push({ els: [articles[0]], trusted: true });
+            var main = document.querySelector('main');
+            if (main) roots.push({ els: [main], trusted: false });
+            roots.push({ els: [document.body], trusted: false });
+
+            var paragraphs = [];
+            for (var r = 0; r < roots.length; r++) {
+                var candidate = paragraphsIn(roots[r].els, roots[r].trusted);
+                var total = candidate.reduce(function(sum, t) { return sum + t.length; }, 0);
+                if (total >= 400 || (r === roots.length - 1 && candidate.length > 0)) {
+                    paragraphs = candidate;
+                    break;
+                }
+            }
+
             var seen = {};
             var uniqueParagraphs = paragraphs.filter(function(t) {
                 if (seen[t]) return false;
                 seen[t] = true;
                 return true;
             });
+
+            // Everything from the first promo paragraph on is site furniture.
+            for (var i = 0; i < uniqueParagraphs.length; i++) {
+                if (isPromo(uniqueParagraphs[i])) {
+                    uniqueParagraphs = uniqueParagraphs.slice(0, i);
+                    break;
+                }
+            }
             var ogImage = document.querySelector('meta[property="og:image"]');
+
+            // Whatever the page itself claims for a publish time, checked in
+            // roughly most-to-least-reliable order: an explicit meta tag,
+            // then a <time> element's machine-readable attribute, then
+            // JSON-LD structured data (which sites feed to search engines,
+            // so it's usually accurate when present at all).
+            function extractPublishedAt() {
+                var meta = document.querySelector(
+                    'meta[property="article:published_time"], meta[name="article:published_time"], ' +
+                    'meta[itemprop="datePublished"], meta[name="publish-date"], meta[name="date"], ' +
+                    'meta[name="pubdate"], meta[name="parsely-pub-date"], meta[property="og:article:published_time"]'
+                );
+                if (meta) {
+                    var content = meta.getAttribute('content');
+                    if (content) return content;
+                }
+                var timeEl = document.querySelector('time[datetime]');
+                if (timeEl) {
+                    var datetime = timeEl.getAttribute('datetime');
+                    if (datetime) return datetime;
+                }
+                var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                for (var i = 0; i < scripts.length; i++) {
+                    try {
+                        var parsed = JSON.parse(scripts[i].textContent);
+                        var queue = Array.isArray(parsed) ? parsed.slice() : [parsed];
+                        while (queue.length) {
+                            var node = queue.shift();
+                            if (!node || typeof node !== 'object') continue;
+                            if (node.datePublished) return node.datePublished;
+                            if (node['@graph']) queue = queue.concat(node['@graph']);
+                        }
+                    } catch (e) {}
+                }
+                return null;
+            }
+
             return {
                 title: titleText,
                 body: uniqueParagraphs.join('\\n\\n'),
-                image: ogImage ? ogImage.getAttribute('content') : null
+                image: ogImage ? ogImage.getAttribute('content') : null,
+                publishedAt: extractPublishedAt()
             };
         })();
         """
@@ -232,7 +529,41 @@ final class ArticleFetcher {
               !body.isEmpty else {
             return nil
         }
-        return Article(title: title, bodyText: body, imageURL: row["image"] as? String, sourceURL: url.absoluteString)
+        let publishedAt = (row["publishedAt"] as? String).flatMap(Self.parsePublishedAt)
+        return Article(
+            title: title,
+            bodyText: body,
+            imageURL: row["image"] as? String,
+            sourceURL: url.absoluteString,
+            publishedAt: publishedAt
+        )
+    }
+
+    /// Publish-time strings arrive in whatever format the page's own
+    /// templating happens to emit — full ISO 8601 with a timezone is the
+    /// common case (covered by the two formatter option sets tried here), but
+    /// a bare date with no time component (`2026-08-25`) shows up often
+    /// enough from `<meta name="date">` tags to be worth a third, simpler
+    /// fallback rather than losing the story's date entirely.
+    private static func parsePublishedAt(_ raw: String) -> Date? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        let isoWithFractional = ISO8601DateFormatter()
+        isoWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoWithFractional.date(from: trimmed) {
+            return date
+        }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: trimmed) {
+            return date
+        }
+        let dateOnly = DateFormatter()
+        dateOnly.dateFormat = "yyyy-MM-dd"
+        dateOnly.timeZone = TimeZone(identifier: "UTC")
+        return dateOnly.date(from: String(trimmed.prefix(10)))
     }
 
     // MARK: - Headless page loading
@@ -285,7 +616,53 @@ final class ArticleFetcher {
             }
         }
         _ = waiter
+        await settle(webView)
     }
+
+    /// `didFinish` fires when the document and its subresources are done, which
+    /// on a client-rendered site is well before there's anything to extract:
+    /// Reddit finishes navigation with an empty body and only then hydrates
+    /// (and client-side redirects to its own `?rdt=` URL). Rather than paying a
+    /// fixed delay on every page — there are dozens per refresh — this polls
+    /// for content and returns the moment it appears, so a server-rendered page
+    /// costs one script evaluation and only a shell actually waits.
+    private func settle(_ webView: WKWebView, timeout: TimeInterval = 4) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        let probe = "document.body ? document.body.innerText.length : 0"
+        var previousLength = -1
+        var unchangedPolls = 0
+        while Date() < deadline {
+            let length = await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
+                webView.evaluateJavaScript(probe) { value, _ in
+                    continuation.resume(returning: (value as? Int) ?? 0)
+                }
+            }
+            if length >= Self.settledTextLength {
+                return
+            }
+            // Two polls in a row with no growth means the page is done
+            // rendering whatever it's going to render — waiting out the rest
+            // of the timeout wouldn't produce more text. Without this, a
+            // page that's simply short (most of them: this only exists for
+            // the handful of sites that hydrate client-side) paid the full
+            // timeout on every single fetch.
+            if length == previousLength {
+                unchangedPolls += 1
+                if unchangedPolls >= 2 {
+                    return
+                }
+            } else {
+                unchangedPolls = 0
+            }
+            previousLength = length
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    /// Enough rendered text to call a page loaded. Low enough that a genuinely
+    /// short page isn't made to sit out the whole timeout, high enough to see
+    /// past a shell carrying nothing but a nav bar.
+    private static let settledTextLength = 400
 
     private func decodeJSONArray(_ data: Data?) -> [[String: Any]] {
         guard let data, let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {

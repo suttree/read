@@ -5,6 +5,10 @@ import Foundation
 /// unique, so remembering "you liked this exact URL" wouldn't help predict
 /// interest in stories you haven't seen yet. What generalizes is the words.
 public struct VoteRecord: Codable, Sendable {
+    /// Which card this vote came from, so a second press of the same button
+    /// can find and undo it. Not used for training — the words are what
+    /// generalize — and optional so records saved before it existed decode.
+    public let storyID: String?
     public let title: String
     public let sourceName: String
     /// A bounded slice of the article's opening text (not the whole thing —
@@ -15,7 +19,8 @@ public struct VoteRecord: Codable, Sendable {
     public let isUpvote: Bool
     public let votedAt: Date
 
-    public init(title: String, sourceName: String, contentExcerpt: String? = nil, isUpvote: Bool, votedAt: Date = Date()) {
+    public init(storyID: String? = nil, title: String, sourceName: String, contentExcerpt: String? = nil, isUpvote: Bool, votedAt: Date = Date()) {
+        self.storyID = storyID
         self.title = title
         self.sourceName = sourceName
         self.contentExcerpt = contentExcerpt

@@ -22,12 +22,13 @@ struct UnlockView: View {
         VStack(spacing: 18) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 36))
-                    .foregroundStyle(theme.inkSecondary)
+            // One mark, not two: the candle stands in for the book above the
+            // wordmark, rather than the app showing a book here and a horse
+            // down at the foot of the same screen.
+            VStack(spacing: 10) {
+                CandleMark(height: 54, opacity: 0.75)
                 Text("Read")
-                    .font(ReaderTheme.serif(22, weight: .semibold))
+                    .font(BrandTypeface.wordmark(22))
                     .foregroundStyle(theme.ink)
             }
 

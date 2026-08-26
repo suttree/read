@@ -13,39 +13,51 @@ final class ReadAppModel: ObservableObject {
     @Published var stories: [Story] = []
     @Published var isRefreshing = false
     @Published var refreshStatus: String?
+    /// 0...1 across the whole refresh — pulling front pages, then fetching
+    /// each story, then scoring the batch. Drives the bar on `RefreshScreen`,
+    /// which is up for the entire run and needs something better to say than
+    /// an indeterminate spinner.
+    @Published var refreshProgress: Double = 0
+    /// Set by the "Skip to the feed" button, cleared when the next refresh
+    /// starts — one refresh being waved past shouldn't stop the curtain going
+    /// up on the next one.
+    @Published var hasSkippedRefreshScreen = false
     @Published var lastRefreshError: String?
     @Published var isShowingSettings = false
     @Published var path: [ReadRoute] = []
 
-    enum FeedFilter: String {
-        case unread
-        case saved
+    /// Two ways of looking at the same pile of stories: `feed` is the
+    /// recommendation stream — ranked by the Naive Bayes model and with
+    /// anything you've already read dropped off — while `all` is the plain
+    /// list of everything pulled, newest first, nothing hidden or reordered.
+    enum FeedMode: String {
+        case feed
         case all
     }
 
-    @Published var feedFilter: FeedFilter {
+    @Published var feedMode: FeedMode {
         didSet {
-            UserDefaults.standard.set(feedFilter.rawValue, forKey: Self.feedFilterStorageKey)
+            UserDefaults.standard.set(feedMode.rawValue, forKey: Self.feedModeStorageKey)
         }
     }
 
-    /// Which stories have been opened and which have been explicitly saved
-    /// ("hearted") — drives the Unread/Saved/All filter on the homepage.
-    @Published var readStoryIDs: Set<String> = []
-    @Published var savedStoryIDs: Set<String> = []
-
     @Published var theme: ReaderTheme {
         didSet {
-            UserDefaults.standard.set(theme.rawValue, forKey: Self.themeStorageKey)
+            UserDefaults.standard.set(theme.id, forKey: Self.themeStorageKey)
             AppIconTheming.apply(theme)
         }
     }
 
-    /// Per-card up/down state for whatever's currently on screen — keyed by
-    /// story id (which changes every refresh), so this is just UI feedback
-    /// for the current batch, not the training history itself (that's
-    /// `voteHistory`, keyed on title words instead so it generalizes).
-    @Published var votedStoryIDs: [String: Bool] = [:]
+    /// Stories you've rated by hand, keyed by story id. Absent means you
+    /// haven't touched it and the ranker's prediction stands. This is UI state
+    /// for the current batch, not the training history itself — that's
+    /// `voteHistory`, keyed on title words instead so it generalizes.
+    @Published var ratingByStoryID: [String: Bool] = [:]
+
+    /// Story id -> predicted-interest score. Recomputed after a refresh and
+    /// after every vote, so voting visibly reshuffles the Feed tab right away.
+    /// Empty until the ranker has enough votes to say anything.
+    @Published private(set) var scoreByStoryID: [String: Double] = [:]
 
     @Published var isUnlocked = false
     @Published var isUnlocking = false
@@ -70,9 +82,13 @@ final class ReadAppModel: ObservableObject {
     private var articleCacheFetchedAt: [String: Date] = [:]
     private var voteHistory: [VoteRecord] = []
     private var ranker: NaiveBayesRanker
+    /// Stories that have been opened. Deliberately not training data — see
+    /// `ReadState`. Feed uses it to drop a story once you've read it; All
+    /// keeps every story and just dims the ones in here.
+    @Published private(set) var readStoryIDs: Set<String> = []
 
     private static let themeStorageKey = "ReadTheme"
-    private static let feedFilterStorageKey = "ReadFeedFilter"
+    private static let feedModeStorageKey = "ReadFeedMode"
 
     init() {
         let store = FileSourceStore(fileURL: Self.sourcesFileURL())
@@ -88,23 +104,17 @@ final class ReadAppModel: ObservableObject {
         hasStoredPassword = secretStore.hasStoredPassword
         voteHistory = (try? votes.loadVotes()) ?? []
         ranker = NaiveBayesRanker(votes: voteHistory)
-        let loadedState = (try? readState.loadState()) ?? ReadState()
-        readStoryIDs = Set(loadedState.readIDs)
-        savedStoryIDs = Set(loadedState.savedIDs)
+        readStoryIDs = Set((try? readState.loadState())?.readIDs ?? [])
         let cachedEntries = (try? articleCacheFile.loadEntries()) ?? []
         for entry in cachedEntries {
             articleCache[entry.storyURL] = entry.article
             articleCacheFetchedAt[entry.storyURL] = entry.fetchedAt
         }
-        if let stored = UserDefaults.standard.string(forKey: Self.themeStorageKey), let theme = ReaderTheme(rawValue: stored) {
-            self.theme = theme
+        self.theme = ReaderTheme.named(UserDefaults.standard.string(forKey: Self.themeStorageKey))
+        if let stored = UserDefaults.standard.string(forKey: Self.feedModeStorageKey), let mode = FeedMode(rawValue: stored) {
+            self.feedMode = mode
         } else {
-            self.theme = .standard
-        }
-        if let stored = UserDefaults.standard.string(forKey: Self.feedFilterStorageKey), let filter = FeedFilter(rawValue: stored) {
-            self.feedFilter = filter
-        } else {
-            self.feedFilter = .unread
+            self.feedMode = .feed
         }
     }
 
@@ -128,10 +138,6 @@ final class ReadAppModel: ObservableObject {
         return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("articleCache.json")
     }
 
-    private func persistReadState() {
-        try? readStateStore.saveState(ReadState(readIDs: Array(readStoryIDs), savedIDs: Array(savedStoryIDs)))
-    }
-
     private func persistArticleCache() {
         let entries = articleCache.compactMap { (url, article) -> ArticleCacheEntry? in
             ArticleCacheEntry(storyURL: url, article: article, fetchedAt: articleCacheFetchedAt[url] ?? Date())
@@ -145,7 +151,7 @@ final class ReadAppModel: ObservableObject {
         persistArticleCache()
     }
 
-    // MARK: - Read / saved state
+    // MARK: - Read state
 
     func markRead(_ story: Story) {
         guard readStoryIDs.insert(story.id).inserted else {
@@ -155,32 +161,92 @@ final class ReadAppModel: ObservableObject {
     }
 
     func toggleRead(_ story: Story) {
-        if readStoryIDs.contains(story.id) {
+        if !readStoryIDs.insert(story.id).inserted {
             readStoryIDs.remove(story.id)
-        } else {
-            readStoryIDs.insert(story.id)
         }
         persistReadState()
     }
 
-    func toggleSaved(_ story: Story) {
-        if savedStoryIDs.contains(story.id) {
-            savedStoryIDs.remove(story.id)
-        } else {
-            savedStoryIDs.insert(story.id)
-        }
-        persistReadState()
+    func isRead(_ story: Story) -> Bool {
+        readStoryIDs.contains(story.id)
     }
 
+    private func persistReadState() {
+        try? readStateStore.saveState(ReadState(readIDs: Array(readStoryIDs)))
+    }
+
+    // MARK: - Feed ordering
+
+    /// What each mode shows. Feed is a queue: the stories whose bolt is lit —
+    /// rated up, or predicted by the ranker — best first, with anything
+    /// already read dropped off entirely, since reading a story is what takes
+    /// it off the list. All is everything pulled, in fetch order, with read
+    /// stories kept but dimmed rather than removed — All is where "what did I
+    /// already see" stays answerable.
+    ///
+    /// Until the ranker has enough ratings to score anything, every bolt is
+    /// lit and Feed matches All minus whatever's been read.
     func visibleStories(from allStories: [Story]) -> [Story] {
-        switch feedFilter {
-        case .unread:
-            return allStories.filter { !readStoryIDs.contains($0.id) }
-        case .saved:
-            return allStories.filter { savedStoryIDs.contains($0.id) }
-        case .all:
+        let candidates = ratedCandidates(from: allStories)
+        guard feedMode == .feed else {
+            // A story with a real, page-stated publish date sorts by that.
+            // A story without one sorts after every dated story, rather than
+            // falling back to `fetchedAt` compared directly against real
+            // dates — `fetchedAt` is always "just now, this refresh," so
+            // comparing it against a genuine publish time from hours or days
+            // ago meant any source that simply doesn't expose a date (a
+            // personal blog, a Pinboard bookmark, an aggregator) always won
+            // the sort regardless of how stale it actually was, crowding out
+            // properly-dated, genuinely fresh articles from sites that do
+            // expose one. Undated stories still keep a stable relative order
+            // among themselves, by `fetchedAt`, rather than shuffling on
+            // every recomputation.
+            return candidates.sorted { lhs, rhs in
+                switch (lhs.publishedAt, rhs.publishedAt) {
+                case let (lhsDate?, rhsDate?):
+                    return lhsDate > rhsDate
+                case (nil, nil):
+                    return lhs.fetchedAt > rhs.fetchedAt
+                case (nil, _):
+                    return false
+                case (_, nil):
+                    return true
+                }
+            }
+        }
+        return candidates.filter { !readStoryIDs.contains($0.id) }
+    }
+
+    /// Feed's ordering before read state is applied — used by `visibleStories`
+    /// and, unfiltered by read, by `adjacentStory`. j/k on a permalink has to
+    /// be able to step off a story that opening it just marked read, which the
+    /// read filter would otherwise pull out from under the step.
+    private func ratedCandidates(from allStories: [Story]) -> [Story] {
+        guard feedMode == .feed, !scoreByStoryID.isEmpty else {
             return allStories
         }
+        return allStories.enumerated()
+            .filter { isRated($0.element) }
+            .sorted { lhs, rhs in
+                let lhsScore = scoreByStoryID[lhs.element.id] ?? 0
+                let rhsScore = scoreByStoryID[rhs.element.id] ?? 0
+                // Fetch position breaks ties, so equally-scored stories hold
+                // their order instead of the sort shuffling them arbitrarily.
+                return (lhsScore, -Double(lhs.offset)) > (rhsScore, -Double(rhs.offset))
+            }
+            .map(\.element)
+    }
+
+    /// Scores are log-odds of "like" vs "dislike", so zero is the natural
+    /// dividing line: above it the story's words look more like the ones you
+    /// upvoted, below it more like the ones you downvoted.
+    private static let feedScoreThreshold: Double = 0
+
+    /// True when Feed is actively filtering rather than just passing All
+    /// through — lets the homepage explain an empty Feed instead of showing
+    /// the same "nothing fetched" message a failed refresh would.
+    var isFeedRanked: Bool {
+        feedMode == .feed && !scoreByStoryID.isEmpty
     }
 
     // MARK: - Voting
@@ -188,27 +254,72 @@ final class ReadAppModel: ObservableObject {
     /// Records the vote for training, then immediately re-ranks whatever's
     /// currently on screen — voting should feel like it's shaping the feed
     /// right away, not just influencing some future refresh.
-    func vote(_ story: Story, isUpvote: Bool) {
-        let excerpt = story.excerpt ?? articleCache[story.storyURL]?.bodyText
-        voteHistory.append(VoteRecord(title: story.title, sourceName: story.sourceName, contentExcerpt: excerpt, isUpvote: isUpvote))
-        try? voteStore.saveVotes(voteHistory)
-        votedStoryIDs[story.id] = isUpvote
-        ranker = NaiveBayesRanker(votes: voteHistory)
-        applyRanking()
+    /// Whether the bolt is lit for a story: your own rating if you've given
+    /// one, otherwise the ranker's prediction. Untrained, everything is lit —
+    /// with nothing learned yet there's no basis for dropping anything, and a
+    /// feed that started out empty would be worse than one that starts full.
+    func isRated(_ story: Story) -> Bool {
+        if let rating = ratingByStoryID[story.id] {
+            return rating
+        }
+        guard let score = scoreByStoryID[story.id] else {
+            return true
+        }
+        return score > Self.feedScoreThreshold
     }
 
-    /// Once there's enough signal (a handful of votes in both directions),
-    /// reorders the feed by predicted interest instead of raw fetch order —
-    /// the "algorithmic stream." Before that, stories stay in whatever order
-    /// they were fetched in; a ranker trained on 1-2 votes would just be
-    /// reordering things randomly and calling it personalization.
-    private func applyRanking() {
+    func toggleRating(_ story: Story) {
+        setRating(story, liked: !isRated(story))
+    }
+
+    /// Records the rating for training, then immediately re-scores whatever's
+    /// on screen — rating should feel like it's shaping the feed right away,
+    /// not just influencing some future refresh.
+    func setRating(_ story: Story, liked: Bool) {
+        // Any earlier rating of this story comes out first, so flipping the
+        // bolt back and forth replaces the record instead of training the
+        // model on both answers.
+        voteHistory.removeAll { record in
+            if let recordedID = record.storyID {
+                return recordedID == story.id
+            }
+            return record.title == story.title && record.sourceName == story.sourceName
+        }
+
+        let excerpt = story.excerpt ?? articleCache[story.storyURL]?.bodyText
+        voteHistory.append(
+            VoteRecord(
+                storyID: story.id,
+                title: story.title,
+                sourceName: story.sourceName,
+                contentExcerpt: excerpt,
+                isUpvote: liked
+            )
+        )
+        ratingByStoryID[story.id] = liked
+
+        try? voteStore.saveVotes(voteHistory)
+        ranker = NaiveBayesRanker(votes: voteHistory)
+        recomputeRanking()
+    }
+
+    /// Predicted-interest position per story, which the Feed tab sorts by —
+    /// the "algorithmic stream." Scored once here rather than inside a sort
+    /// comparator, since each score tokenizes a title and an excerpt and a
+    /// comparator would redo that work O(n log n) times per re-sort.
+    ///
+    /// Only populated once there's enough signal (a handful of votes in both
+    /// directions); before that the feed keeps fetch order, because a ranker
+    /// trained on 1-2 votes would just be reordering things randomly and
+    /// calling it personalization. `stories` itself is deliberately left in
+    /// fetch order either way — that's what the All tab shows.
+    private func recomputeRanking() {
         guard ranker.isTrained else {
+            scoreByStoryID = [:]
             return
         }
-        stories = stories.sorted { lhs, rhs in
-            ranker.score(title: lhs.title, sourceName: lhs.sourceName, excerpt: lhs.excerpt)
-                > ranker.score(title: rhs.title, sourceName: rhs.sourceName, excerpt: rhs.excerpt)
+        scoreByStoryID = stories.reduce(into: [:]) { scores, story in
+            scores[story.id] = ranker.score(title: story.title, sourceName: story.sourceName, excerpt: story.excerpt)
         }
     }
 
@@ -294,14 +405,6 @@ final class ReadAppModel: ObservableObject {
         inactivityTimer = nil
     }
 
-    /// Belt-and-suspenders against the same story appearing more than once —
-    /// e.g. the same site tracked under two slightly different URLs, or two
-    /// sources both linking the same wire story.
-    private static func deduplicated(_ stories: [Story]) -> [Story] {
-        var seenURLs = Set<String>()
-        return stories.filter { seenURLs.insert($0.storyURL).inserted }
-    }
-
     // MARK: - Sources
 
     func addSource(urlString: String) {
@@ -334,6 +437,8 @@ final class ReadAppModel: ObservableObject {
             return
         }
         isRefreshing = true
+        refreshProgress = 0
+        hasSkippedRefreshScreen = false
         lastRefreshError = nil
         stories = []
 
@@ -342,107 +447,134 @@ final class ReadAppModel: ObservableObject {
         var completedSourceCount = 0
         refreshStatus = "Loading sources… 0 of \(sourcesSnapshot.count)"
 
-        // Sources used to be fetched one at a time — with several tracked
-        // sites that meant waiting out each one's full page-load timeout in
-        // sequence before anything showed up at all. Fetching a few at once,
-        // and updating `stories` after each one lands, means headlines start
-        // appearing within seconds instead of after everything finishes.
+        // One task group carries both phases rather than running them one
+        // after the other. Sources used to all finish loading before the
+        // first per-story fetch even started — with several dozen stories
+        // behind several tracked sites, that meant paying the full cost of
+        // both phases back to back. Enrichment for a source's stories now
+        // starts the moment that source's headlines land, overlapping with
+        // whichever other sources are still loading.
+        enum Unit {
+            case source(UUID, [Story])
+            case enriched(String, Article?)
+        }
+
+        var pendingEnrichment: [Story] = []
+        var runningSources = 0
+        var runningEnrichment = 0
+        var discoveredCount = 0
+        var resolvedCount = 0
         let maxConcurrentSources = 3
-        await withTaskGroup(of: (UUID, [Story]).self) { group in
-            var iterator = sourcesSnapshot.makeIterator()
-            func addNext() {
-                guard let source = iterator.next() else {
+        let maxConcurrentEnrichment = 4
+
+        await withTaskGroup(of: Unit.self) { group in
+            var sourceIterator = sourcesSnapshot.makeIterator()
+
+            func startNextSource() {
+                guard let source = sourceIterator.next() else {
                     return
                 }
+                runningSources += 1
                 group.addTask { [fetcher] in
-                    (source.id, await fetcher.fetchStories(from: source))
+                    .source(source.id, await fetcher.fetchStories(from: source))
                 }
             }
-            for _ in 0..<maxConcurrentSources {
-                addNext()
-            }
-            while let (sourceID, sourceStories) = await group.next() {
-                headlinesBySource[sourceID] = sourceStories
-                completedSourceCount += 1
-                refreshStatus = "Loading sources… \(completedSourceCount) of \(sourcesSnapshot.count)"
-                stories = Self.deduplicated(headlinesBySource.values.flatMap { $0 }).sorted { $0.fetchedAt > $1.fetchedAt }
-                addNext()
-            }
-        }
 
-        let failureCount = sourcesSnapshot.filter { (headlinesBySource[$0.id] ?? []).isEmpty }.count
-        guard failureCount < sourcesSnapshot.count else {
-            lastRefreshError = "Couldn't pull any stories from your tracked sources. Check the URLs in Settings."
-            refreshStatus = nil
-            isRefreshing = false
-            return
-        }
-
-        await enrichProgressively(stories)
-        applyRanking()
-        votedStoryIDs = [:]
-        refreshStatus = nil
-        isRefreshing = false
-    }
-
-    /// Visits each story's own page (a few at a time, not all at once) to
-    /// fill in a real excerpt, and a hero image for stories whose listing
-    /// thumbnail didn't resolve — both far more reliable pulled from the
-    /// story's own page than guessed at from listing-page markup. Updates
-    /// `stories` in place as each one finishes, so cards fill in
-    /// progressively instead of all appearing at once at the very end.
-    /// Fetches each story's full text and, when an API key is set, a real
-    /// Claude-generated summary to show on its homepage card — replacing the
-    /// raw excerpt (opening paragraphs) that's used as a fallback when
-    /// there's no key or the summarization call fails. Both happen inside
-    /// the same concurrent task per story, not as a separate later pass, so
-    /// summarization overlaps with fetching rather than adding its own
-    /// serial delay on top.
-    /// Fetches each story's full text so its card can show a real excerpt —
-    /// no AI summarization here; it's slow (a network round trip per story,
-    /// serialized behind a batch) and costs an API call per story on every
-    /// refresh. The opening paragraph(s) of the actual article give enough
-    /// context on their own.
-    private func enrichProgressively(_ storiesToEnrich: [Story]) async {
-        let maxConcurrent = 4
-        var completed = 0
-        var index = 0
-
-        // A cached article from a very recent refresh is still good — skip
-        // straight to filling in the card instead of hitting the network
-        // again for a page that was just fetched.
-        var toFetch: [Story] = []
-        for story in storiesToEnrich {
-            completed += 1
-            if let cached = articleCache[story.storyURL], let idx = stories.firstIndex(where: { $0.id == story.id }) {
-                if cached.bodyText.count < 120 {
-                    continue
+            func startNextEnrichment() {
+                guard !pendingEnrichment.isEmpty else {
+                    return
                 }
-                if stories[idx].imageURL == nil {
-                    stories[idx].imageURL = cached.imageURL
+                let story = pendingEnrichment.removeFirst()
+                runningEnrichment += 1
+                group.addTask { [fetcher] in
+                    guard let url = URL(string: story.storyURL) else {
+                        return .enriched(story.id, nil)
+                    }
+                    return .enriched(story.id, await fetcher.fetchArticle(url: url))
                 }
-                stories[idx].excerpt = String(cached.bodyText.prefix(1200))
-            } else {
-                toFetch.append(story)
             }
-        }
-        completed = 0
 
-        while index < toFetch.count {
-            let batchEnd = min(index + maxConcurrent, toFetch.count)
-            let batch = Array(toFetch[index..<batchEnd])
-            await withTaskGroup(of: (String, Article?).self) { group in
-                for story in batch {
-                    group.addTask { [fetcher] in
-                        guard let url = URL(string: story.storyURL) else {
-                            return (story.id, nil)
-                        }
-                        return (story.id, await fetcher.fetchArticle(url: url))
+            func fillEnrichmentSlots() {
+                while runningEnrichment < maxConcurrentEnrichment {
+                    let before = runningEnrichment
+                    startNextEnrichment()
+                    if runningEnrichment == before {
+                        break
                     }
                 }
-                for await (storyID, article) in group {
-                    completed += 1
-                    refreshStatus = "Fetching story details… \(completed) of \(toFetch.count)"
+            }
+
+            @MainActor
+            func updateProgress() {
+                let sourceProgress = Double(completedSourceCount) / Double(sourcesSnapshot.count)
+                let enrichProgress = discoveredCount > 0 ? Double(resolvedCount) / Double(discoveredCount) : 0
+                refreshProgress = Self.sourcePhaseShare * sourceProgress + Self.enrichPhaseShare * enrichProgress
+            }
+
+            for _ in 0..<maxConcurrentSources {
+                startNextSource()
+            }
+
+            while let unit = await group.next() {
+                switch unit {
+                case .source(let sourceID, let sourceStories):
+                    runningSources -= 1
+                    headlinesBySource[sourceID] = sourceStories
+                    completedSourceCount += 1
+
+                    // Appended to the existing array and re-sorted in place,
+                    // never rebuilt from `headlinesBySource` — enrichment is
+                    // now running concurrently with sources still arriving
+                    // (that's the whole point of interleaving the two
+                    // phases), and rebuilding from the pristine per-source
+                    // snapshots on every arrival was discarding every excerpt
+                    // and image already written into `stories` by enrichment
+                    // tasks that had finished earlier in the same pass —
+                    // which is why cards were coming back with no
+                    // descriptions. Sorting the array that's actually been
+                    // mutated keeps those in place.
+                    var seenStoryURLs = Set(stories.map(\.storyURL))
+                    for story in sourceStories where seenStoryURLs.insert(story.storyURL).inserted {
+                        stories.append(story)
+                    }
+                    stories.sort { $0.fetchedAt > $1.fetchedAt }
+
+                    // A cached article from a very recent refresh is still
+                    // good — apply it straight to the card instead of
+                    // hitting the network again for a page that was just
+                    // fetched, and only queue the rest for a real fetch.
+                    for story in sourceStories {
+                        discoveredCount += 1
+                        if let cached = articleCache[story.storyURL], let idx = stories.firstIndex(where: { $0.id == story.id }) {
+                            resolvedCount += 1
+                            if cached.bodyText.count >= 120 {
+                                if stories[idx].imageURL == nil {
+                                    stories[idx].imageURL = cached.imageURL
+                                }
+                                stories[idx].excerpt = String(cached.bodyText.prefix(1200))
+                                stories[idx].publishedAt = cached.publishedAt
+                            }
+                        } else {
+                            pendingEnrichment.append(story)
+                        }
+                    }
+
+                    if runningSources < maxConcurrentSources {
+                        startNextSource()
+                    }
+                    fillEnrichmentSlots()
+                    refreshStatus = runningEnrichment > 0
+                        ? "Fetching story details… \(resolvedCount) of \(discoveredCount)"
+                        : "Loading sources… \(completedSourceCount) of \(sourcesSnapshot.count)"
+                    updateProgress()
+
+                case .enriched(let storyID, let article):
+                    runningEnrichment -= 1
+                    resolvedCount += 1
+                    refreshStatus = "Fetching story details… \(resolvedCount) of \(discoveredCount)"
+                    updateProgress()
+                    startNextEnrichment()
+
                     guard let idx = stories.firstIndex(where: { $0.id == storyID }) else {
                         continue
                     }
@@ -470,11 +602,47 @@ final class ReadAppModel: ObservableObject {
                         stories[idx].imageURL = article.imageURL
                     }
                     stories[idx].excerpt = String(article.bodyText.prefix(1200))
+                    stories[idx].publishedAt = article.publishedAt
                 }
             }
-            index = batchEnd
         }
+
+        let failureCount = sourcesSnapshot.filter { (headlinesBySource[$0.id] ?? []).isEmpty }.count
+        guard failureCount < sourcesSnapshot.count else {
+            lastRefreshError = "Couldn't pull any stories from your tracked sources. Check the URLs in Settings."
+            refreshStatus = nil
+            refreshProgress = 0
+            isRefreshing = false
+            return
+        }
+
+        refreshStatus = "Sorting your feed…"
+        refreshProgress = 0.97
+        recomputeRanking()
+        // Story ids are stable per source+URL, so a rating given before this
+        // refresh still belongs to the card that came back — rebuild the
+        // on-screen bolt states from the saved history rather than wiping
+        // them, or a story you already rated comes back looking untouched.
+        ratingByStoryID = voteHistory.reduce(into: [:]) { states, record in
+            if let storyID = record.storyID {
+                states[storyID] = record.isUpvote
+            }
+        }
+        refreshProgress = 1
+        refreshStatus = nil
+        // Land back on a settled page 1 rather than wherever the reader was
+        // when they hit refresh — the story they were reading is gone from
+        // `stories` by now anyway.
+        goHome()
+        isRefreshing = false
     }
+
+    /// How much of the bar each phase owns. The two now run concurrently
+    /// rather than back to back, so this is a blend rather than two
+    /// consecutive ranges — fetching every story is still the long pole by a
+    /// wide margin, so it gets the bulk of the weight.
+    private static let sourcePhaseShare = 0.3
+    private static let enrichPhaseShare = 0.7
 
     // MARK: - Permalink
 
@@ -500,24 +668,38 @@ final class ReadAppModel: ObservableObject {
     /// back/forward semantics: navigating to a new story clears this, so
     /// forward only ever replays what you just went back from.
     private var forwardPath: [ReadRoute] = []
+    /// The list from which the current permalink was opened. Opening a story
+    /// marks it read, which changes Feed immediately, so adjacent navigation
+    /// must keep the pre-open list rather than rebuilding from all stories.
+    private var permalinkStoryOrder: [String] = []
 
     func openStory(_ story: Story) {
+        permalinkStoryOrder = visibleStories(from: stories).map(\.id)
         path.append(.story(story.id))
         forwardPath.removeAll()
     }
 
-    /// The story immediately before/after `story` in whatever order the
-    /// homepage is currently showing — j/k on the permalink page uses this
-    /// to move to the next or previous story without going back to the list.
+    /// The story immediately before/after `story` in the homepage's current
+    /// list. Feed uses its ranked order before the read filter removes the
+    /// opened story. All uses the same published-date ordering shown by the
+    /// homepage. Read stories stay in the sequence so j/k keeps working from
+    /// a story you just opened.
     func adjacentStory(to story: Story, offset: Int) -> Story? {
-        guard let idx = stories.firstIndex(where: { $0.id == story.id }) else {
+        let ordered: [Story]
+        if permalinkStoryOrder.isEmpty {
+            ordered = visibleStories(from: stories)
+        } else {
+            let storiesByID = Dictionary(uniqueKeysWithValues: stories.map { ($0.id, $0) })
+            ordered = permalinkStoryOrder.compactMap { storiesByID[$0] }
+        }
+        guard let idx = ordered.firstIndex(where: { $0.id == story.id }) else {
             return nil
         }
         let newIndex = idx + offset
-        guard stories.indices.contains(newIndex) else {
+        guard ordered.indices.contains(newIndex) else {
             return nil
         }
-        return stories[newIndex]
+        return ordered[newIndex]
     }
 
     /// Replaces the current permalink in place rather than pushing a new one
@@ -540,6 +722,9 @@ final class ReadAppModel: ObservableObject {
             return
         }
         forwardPath.append(last)
+        if path.isEmpty {
+            permalinkStoryOrder.removeAll()
+        }
     }
 
     func goForward() {
@@ -561,6 +746,7 @@ final class ReadAppModel: ObservableObject {
     func goHome() {
         path.removeAll()
         forwardPath.removeAll()
+        permalinkStoryOrder.removeAll()
         homeRequestID += 1
     }
 }

@@ -14,15 +14,17 @@ struct ReadApp: App {
                 .frame(minWidth: 760, minHeight: 560)
         }
         .commands {
-            CommandGroup(after: .toolbar) {
-                Menu("Theme") {
-                    ForEach(ReaderTheme.allCases) { theme in
-                        Button(theme.title) {
-                            model.theme = theme
-                        }
-                    }
+            // Replacing rather than adding, so ⌘, lands on the app's own
+            // settings sheet and macOS doesn't also offer an empty Settings
+            // item of its own in the app menu.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    model.isShowingSettings = true
                 }
+                .keyboardShortcut(",", modifiers: .command)
+                .disabled(!model.isUnlocked || model.isLockedByInactivity)
             }
+
             CommandGroup(after: .sidebar) {
                 Button("Back") {
                     model.goBack()
@@ -44,17 +46,18 @@ struct ContentView: View {
     var body: some View {
         Group {
             if model.isUnlocked, !model.isLockedByInactivity {
-                NavigationStack(path: $model.path) {
-                    HomepageView(model: model)
-                        .navigationDestination(for: ReadRoute.self) { route in
-                            switch route {
-                            case .story(let id):
-                                if let story = model.story(withID: id) {
-                                    PermalinkView(model: model, story: story)
-                                }
-                            }
+                navigation
+                    .overlay {
+                        if model.isRefreshing, !model.hasSkippedRefreshScreen {
+                            RefreshScreen(
+                                status: model.refreshStatus,
+                                progress: model.refreshProgress,
+                                skip: { model.hasSkippedRefreshScreen = true }
+                            )
+                            .transition(.opacity)
                         }
-                }
+                    }
+                    .animation(.easeInOut(duration: 0.35), value: model.isRefreshing)
             } else {
                 UnlockView(
                     isCreatingPassword: !model.hasStoredPassword,
@@ -65,5 +68,27 @@ struct ContentView: View {
             }
         }
         .environment(\.readerTheme, model.theme)
+    }
+
+    private var navigation: some View {
+        NavigationStack(path: $model.path) {
+            HomepageView(model: model)
+                .navigationDestination(for: ReadRoute.self) { route in
+                    switch route {
+                    case .story(let id):
+                        if let story = model.story(withID: id) {
+                            // j/k on a permalink swaps the story in place at
+                            // the top of the path rather than pushing a new
+                            // route, so without an explicit identity SwiftUI
+                            // reuses the same PermalinkView — keeping the
+                            // previous story's already-loaded article in
+                            // @State while only the title (read straight from
+                            // the new story) updated.
+                            PermalinkView(model: model, story: story)
+                                .id(story.id)
+                        }
+                    }
+                }
+        }
     }
 }

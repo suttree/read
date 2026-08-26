@@ -15,6 +15,10 @@ public struct Story: Identifiable, Codable, Equatable, Sendable {
     /// don't carry deck/trail text in the DOM for anything but hero stories.
     public var excerpt: String?
     public let fetchedAt: Date
+    /// The page's own stated publish time, filled in during enrichment once
+    /// the story's article page has been fetched — see `Article.publishedAt`.
+    /// Nil until then, and nil after if the page doesn't expose one.
+    public var publishedAt: Date?
 
     public init(
         title: String,
@@ -23,7 +27,8 @@ public struct Story: Identifiable, Codable, Equatable, Sendable {
         sourceName: String,
         imageURL: String? = nil,
         excerpt: String? = nil,
-        fetchedAt: Date = Date()
+        fetchedAt: Date = Date(),
+        publishedAt: Date? = nil
     ) {
         self.id = "\(sourceID.uuidString)|\(storyURL)"
         self.title = title
@@ -33,5 +38,6 @@ public struct Story: Identifiable, Codable, Equatable, Sendable {
         self.imageURL = imageURL
         self.excerpt = excerpt
         self.fetchedAt = fetchedAt
+        self.publishedAt = publishedAt
     }
 }

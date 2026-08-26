@@ -8,7 +8,6 @@ struct PermalinkView: View {
     @Environment(\.readerTheme) private var theme
     @State private var article: Article?
     @State private var isLoadingArticle = false
-    @State private var articleLoadFailed = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -31,32 +30,33 @@ struct PermalinkView: View {
                             .foregroundStyle(theme.inkSecondary)
                     }
                     .padding(.top, 12)
-                } else if articleLoadFailed {
-                    Text("Couldn't load the full text for this story.")
-                        .font(ReaderTheme.sans(13))
-                        .foregroundStyle(theme.inkSecondary)
-                } else if let article {
+                } else {
+                    // The vote buttons sit outside the "did the text load"
+                    // branch on purpose: a story whose page never loaded is
+                    // often exactly the kind you want to downvote — site
+                    // chrome, a paywall, a link roundup — and that signal is
+                    // lost if the only way to give it is on stories that
+                    // worked.
                     HStack(spacing: 10) {
                         Rectangle().fill(theme.rule).frame(height: 1)
-                        HStack(spacing: 10) {
-                            VoteIconButton(systemName: "chevron.up.circle", isActive: model.votedStoryIDs[story.id] == true) {
-                                model.vote(story, isUpvote: true)
-                            }
-                            VoteIconButton(systemName: "chevron.down.circle", isActive: model.votedStoryIDs[story.id] == false) {
-                                model.vote(story, isUpvote: false)
-                            }
-                            VoteIconButton(systemName: "heart", isActive: model.savedStoryIDs.contains(story.id)) {
-                                model.toggleSaved(story)
-                            }
+                        RatingButton(isLit: model.isRated(story)) {
+                            model.toggleRating(story)
                         }
                         .layoutPriority(1)
                         Rectangle().fill(theme.rule).frame(height: 1)
                     }
-                    Text(article.bodyText)
-                        .font(ReaderTheme.serif(16))
-                        .foregroundStyle(theme.ink)
-                        .lineSpacing(6)
-                        .textSelection(.enabled)
+
+                    if let article {
+                        Text(article.bodyText)
+                            .font(ReaderTheme.serif(16))
+                            .foregroundStyle(theme.ink)
+                            .lineSpacing(6)
+                            .textSelection(.enabled)
+                    } else {
+                        Text("Couldn't load the full text for this story.")
+                            .font(ReaderTheme.sans(13))
+                            .foregroundStyle(theme.inkSecondary)
+                    }
                 }
 
                 if let url = URL(string: story.storyURL) {
@@ -73,22 +73,17 @@ struct PermalinkView: View {
         }
         .background(theme.texturedPaper)
         .preferredColorScheme(.light)
-        .navigationTitle(story.title)
-        .toolbarBackground(theme.headerTint, for: .windowToolbar)
+        // Left empty rather than set to the story title: the header shows
+        // its own composed title (wordmark + middot + article title) via
+        // PermalinkBrandToolbarItem below, and a non-empty navigationTitle
+        // here would have macOS draw its own plain-text title right next to
+        // that — the two running together with no separator at all was
+        // exactly the problem.
+        .navigationTitle("")
+        .toolbarBackground(theme.headerPaint, for: .windowToolbar)
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    model.goHome()
-                } label: {
-                    Text("Read")
-                        .font(ReaderTheme.serif(15, weight: .semibold))
-                        .foregroundStyle(theme.ink)
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 6)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Back to the top of page 1")
+            PermalinkBrandToolbarItem(title: article?.title ?? story.title) {
+                model.goHome()
             }
         }
         .focusable()
@@ -99,6 +94,9 @@ struct PermalinkView: View {
         }
         .onAppear {
             isFocused = true
+            // Opening a story is what takes it off the Feed queue — the
+            // permalink is the one place in the app that's unambiguously "you
+            // read this."
             model.markRead(story)
         }
         .task {
@@ -106,11 +104,12 @@ struct PermalinkView: View {
         }
     }
 
-    /// j/k step to the next/previous story without returning to the list,
-    /// h toggles this story's read/unread status, l toggles saved, and
-    /// Backspace jumps straight back to the feed — a story's own page acts
-    /// as a mini reading session rather than a one-off page you always have
-    /// to go back to the list from.
+    /// j/k step to the next/previous story without returning to the list, x
+    /// flips the bolt — the same key that rates the selected card on the feed,
+    /// so rating is one key wherever you are — r toggles read/unread (opening
+    /// the story already marked it read; this is for undoing that), and Esc or
+    /// Backspace jumps straight back to the feed. A story's own page acts as a mini reading session rather than
+    /// a one-off page you always have to go back to the list from.
     private func handleKeyPress(_ press: KeyPress) -> KeyPress.Result {
         switch press.characters {
         case "j":
@@ -119,14 +118,19 @@ struct PermalinkView: View {
         case "k":
             model.showAdjacentStory(from: story, offset: -1)
             return .handled
-        case "h":
+        case "x":
+            model.toggleRating(story)
+            return .handled
+        case "r":
             model.toggleRead(story)
             return .handled
-        case "l":
-            model.toggleSaved(story)
-            return .handled
         default:
-            if press.key == .delete {
+            // Backspace reports as `.delete` (forward delete is
+            // `.deleteForward`), but some keyboard layouts deliver it as the
+            // raw control character with no key name attached, so both spellings
+            // are accepted rather than trusting one.
+            if press.key == .delete || press.key == .escape
+                || press.characters == "\u{8}" || press.characters == "\u{7F}" {
                 model.goBack()
                 return .handled
             }
@@ -140,12 +144,7 @@ struct PermalinkView: View {
             return
         }
         isLoadingArticle = true
-        let fetched = await model.loadArticle(for: story)
+        article = await model.loadArticle(for: story)
         isLoadingArticle = false
-        if let fetched {
-            article = fetched
-        } else {
-            articleLoadFailed = true
-        }
     }
 }
