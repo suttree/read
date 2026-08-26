@@ -15,6 +15,8 @@ enum ThemePatternStyle {
     case stripes([NSColor])
     /// A smooth ramp through the given stops along the same diagonal.
     case gradient([NSColor])
+    /// Two broad diagonal colour fields.
+    case twoTone([NSColor])
     case polkaDots(background: NSColor, dots: [NSColor])
     case packedCircles(background: NSColor, circles: [NSColor], seed: UInt64)
     case triangles([NSColor], seed: UInt64)
@@ -48,6 +50,30 @@ enum ThemePatternRenderer {
                 NSGradient(colors: colours, atLocations: $0.baseAddress, colorSpace: .sRGB)?
                     .draw(in: path, angle: -45)
             }
+
+        case .twoTone(let colours):
+            guard colours.count >= 2 else {
+                colours.first?.setFill()
+                path.fill()
+                return
+            }
+            colours[0].setFill()
+            path.fill()
+            guard let context = NSGraphicsContext.current else { return }
+            context.saveGraphicsState()
+            path.addClip()
+
+            let bounds = path.bounds
+            let transform = NSAffineTransform()
+            transform.translateX(by: bounds.midX, yBy: bounds.midY)
+            transform.rotate(byDegrees: -45)
+            transform.concat()
+
+            let extent = (bounds.width + bounds.height) / 2.0.squareRoot()
+            let height = extent * 2
+            colours[1].setFill()
+            CGRect(x: 0, y: -height / 2, width: extent, height: height).fill()
+            context.restoreGraphicsState()
 
         case .stripes(let colours):
             colours.first?.setFill()

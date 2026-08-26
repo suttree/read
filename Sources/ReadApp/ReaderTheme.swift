@@ -89,13 +89,13 @@ struct ReaderTheme: Identifiable, Hashable {
         explicitStyle ?? .stripes(accents.map(\.nsColor))
     }
 
-    /// App icons use a smooth colour ramp for every theme except Rainbow,
+    /// App icons use two broad colour fields for every theme except Rainbow,
     /// whose stripes are the point of the palette.
     var iconStyle: ThemePatternStyle {
         if id == "rainbow" {
             return .stripes(accents.map(\.nsColor))
         }
-        return .gradient(accents.map(\.nsColor))
+        return .twoTone([accents.first?.nsColor ?? .white, accents.last?.nsColor ?? .black])
     }
 
     /// What the title bar gets, which is not always what the icon gets.
@@ -399,9 +399,9 @@ private struct PolkaDotTexture: View {
     }
 }
 
-/// Generates and applies a themed app icon: the palette's colour ramp as a
-/// gradient, with Rainbow retaining its bold diagonal bands, and the winning
-/// candle artwork laid over the top.
+/// Generates and applies a themed app icon: two broad diagonal colour fields,
+/// with Rainbow retaining its bold diagonal bands, and the winning candle
+/// artwork laid over the top.
 /// Persisted across relaunches since an icon override is otherwise just an
 /// in-memory NSApplication property macOS has no reason to remember on its
 /// own.
