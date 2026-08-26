@@ -451,7 +451,7 @@ enum AppIconTheming {
         if let artwork,
            // Sized below the squircle edge so the candle stays clear of the
            // corners while reading as the main mark.
-           let embossed = embossedArtwork(artwork, tint: theme.iconArtworkTint, fillFraction: 0.84, in: squircleRect.size) {
+           let embossed = embossedArtwork(artwork, tint: theme.iconArtworkTint, fillFraction: 0.92, in: squircleRect.size) {
             let drawRect = NSRect(
                 x: squircleRect.midX - embossed.size.width / 2,
                 y: squircleRect.midY - embossed.size.height / 2,
