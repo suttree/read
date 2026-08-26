@@ -449,10 +449,9 @@ enum AppIconTheming {
         ThemePatternRenderer.fill(theme.iconStyle, in: path, stripeWidth: nil, starSeed: theme.starSeed)
 
         if let artwork,
-           // Shrunk from 0.86: at that size the candle touched close enough
-           // to the squircle's rounded corners to read as boxed-in rather
-           // than sitting inside it with some breathing room.
-           let embossed = embossedArtwork(artwork, tint: theme.iconArtworkTint, fillFraction: 0.76, in: squircleRect.size) {
+           // Sized below the squircle edge so the candle stays clear of the
+           // corners while reading as the main mark.
+           let embossed = embossedArtwork(artwork, tint: theme.iconArtworkTint, fillFraction: 0.84, in: squircleRect.size) {
             let drawRect = NSRect(
                 x: squircleRect.midX - embossed.size.width / 2,
                 y: squircleRect.midY - embossed.size.height / 2,
