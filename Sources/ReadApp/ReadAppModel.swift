@@ -32,9 +32,9 @@ final class ReadAppModel: ObservableObject {
     @Published var path: [ReadRoute] = []
 
     /// Two ways of looking at the same pile of stories: `feed` is the
-    /// recommendation stream — ranked by the Naive Bayes model and with
-    /// anything you've already read dropped off — while `all` is the plain
-    /// list of everything pulled, newest first, nothing hidden or reordered.
+    /// recommendation stream, ranked by the Naive Bayes model, while `all`
+    /// is the plain list of everything pulled, newest first, nothing hidden
+    /// or reordered.
     enum FeedMode: String {
         case feed
         case all
@@ -253,12 +253,10 @@ final class ReadAppModel: ObservableObject {
 
     // MARK: - Feed ordering
 
-    /// What each mode shows. Feed is a queue: the stories whose bolt is lit —
-    /// rated up, or predicted by the ranker — best first, with anything
-    /// already read dropped off entirely, since reading a story is what takes
-    /// it off the list. All is everything pulled, in fetch order, with read
-    /// stories kept but dimmed rather than removed — All is where "what did I
-    /// already see" stays answerable.
+    /// What each mode shows. Feed is the ranked recommendation stream, with
+    /// read stories kept in place and dimmed so the reading history stays
+    /// visible. All is everything pulled, in fetch order, with the same read
+    /// state treatment.
     ///
     /// Until the ranker has enough ratings to score anything, every bolt is
     /// lit and Feed matches All minus whatever's been read.
@@ -290,7 +288,7 @@ final class ReadAppModel: ObservableObject {
                 }
             }
         }
-        return candidates.filter { !readStoryIDs.contains($0.id) }
+        return candidates
     }
 
     /// Feed's ordering before read state is applied — used by `visibleStories`

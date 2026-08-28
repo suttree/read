@@ -52,6 +52,31 @@ struct PermalinkView: View {
                     }
 
                     if let article {
+                        if let imageURL = article.imageURL ?? story.imageURL,
+                           let url = URL(string: imageURL) {
+                            AsyncImage(url: url) { phase in
+                                if let image = phase.image {
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 220)
+                                        .clipped()
+                                        .saturation(0)
+                                        .contrast(1.04)
+                                        .overlay(theme.ink.opacity(0.08))
+                                } else if phase.error != nil {
+                                    EmptyView()
+                                } else {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 120)
+                                }
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .padding(.vertical, 4)
+                        }
+
                         Text(article.bodyText)
                         .font(ReaderTheme.serif(17))
                             .foregroundStyle(theme.ink)
