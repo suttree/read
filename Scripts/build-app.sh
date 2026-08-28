@@ -9,6 +9,9 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 ICONSET_DIR="$ROOT_DIR/.build/Read.iconset"
 ICON_SOURCE="$ROOT_DIR/Assets/noun-candle-4420273.png"
 
+"$ROOT_DIR/Scripts/make-app-icon.sh"
+ICON_SOURCE="$ROOT_DIR/Assets/AppIcon.png"
+
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$ROOT_DIR/.build/clang-module-cache}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$ROOT_DIR/.build/cache}"

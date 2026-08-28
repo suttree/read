@@ -6,8 +6,8 @@ import SwiftUI
 /// there's no plist key that loads fonts for a bundle assembled by hand the
 /// way this one is.
 ///
-/// Falls back to the app's usual serif when the file isn't there, so a missing
-/// font is a slightly different wordmark rather than a blank one.
+/// Falls back to a system serif when the file isn't there, so a missing font
+/// is a slightly different wordmark rather than a blank one.
 enum BrandTypeface {
     private static let familyName = "Playfair Display"
 
@@ -40,10 +40,17 @@ enum BrandTypeface {
             || NSFontManager.shared.availableFontFamilies.contains(familyName)
     }
 
-    static func wordmark(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+    /// The shared typeface for every app surface. Keeping this here means the
+    /// font registration and fallback behaviour are identical for headings,
+    /// controls, settings, and article text.
+    static func appFont(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         guard isAvailable else {
-            return ReaderTheme.serif(size, weight: weight)
+            return .system(size: size, weight: weight, design: .serif)
         }
         return .custom(familyName, size: size).weight(weight)
+    }
+
+    static func wordmark(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        appFont(size, weight: weight)
     }
 }

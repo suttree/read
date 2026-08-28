@@ -18,6 +18,7 @@ enum ThemePatternStyle {
     /// Two broad diagonal colour fields.
     case twoTone([NSColor])
     case polkaDots(background: NSColor, dots: [NSColor])
+    case finePolkaDots(background: NSColor, dots: [NSColor])
     case packedCircles(background: NSColor, circles: [NSColor], seed: UInt64)
     case triangles([NSColor], seed: UInt64)
     /// An irregular triangulation rather than a repeating pattern.
@@ -119,6 +120,8 @@ enum ThemePatternRenderer {
 
         case .polkaDots(let background, let dots):
             drawPolkaDots(in: path, background: background, dots: dots, tiled: stripeWidth != nil)
+        case .finePolkaDots(let background, let dots):
+            drawPolkaDots(in: path, background: background, dots: dots, explicitSpacing: 15)
         case .packedCircles(let background, let circles, let seed):
             drawPackedCircles(in: path, background: background, colours: circles, seed: seed, tiled: stripeWidth != nil)
         case .triangles(let colours, let seed):
@@ -199,10 +202,10 @@ enum ThemePatternRenderer {
         context.restoreGraphicsState()
     }
 
-    private static func drawPolkaDots(in path: NSBezierPath, background: NSColor, dots: [NSColor], tiled: Bool) {
+    private static func drawPolkaDots(in path: NSBezierPath, background: NSColor, dots: [NSColor], tiled: Bool = false, explicitSpacing: CGFloat? = nil) {
         clipped(path, background: background) { bounds in
-            let spacing = tiled ? CGFloat(24) : bounds.width / 7
-            let radius = spacing * 0.22
+            let spacing = explicitSpacing ?? (tiled ? CGFloat(24) : bounds.width / 7)
+            let radius = spacing * (explicitSpacing == nil ? 0.22 : 0.14)
             var row = 0
             var y = bounds.minY - spacing
             while y < bounds.maxY + spacing {

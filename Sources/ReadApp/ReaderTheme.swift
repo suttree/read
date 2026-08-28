@@ -89,9 +89,19 @@ struct ReaderTheme: Identifiable, Hashable {
         explicitStyle ?? .stripes(accents.map(\.nsColor))
     }
 
-    /// App icons use the palette midpoint as a quiet solid background.
+    /// App icons use the palette midpoint as a soft pastel background, with
+    /// the same restrained polka-dot texture as the reading surface.
     var iconStyle: ThemePatternStyle {
-        return .solid(accents[accents.count / 2].nsColor)
+        return .finePolkaDots(
+            background: iconBackground.nsColor,
+            dots: [iconBackground.darkened(0.28).nsColor.withAlphaComponent(0.28)]
+        )
+    }
+
+    /// A lightened midpoint keeps each theme recognisable while retaining
+    /// enough colour for the icon's white inset border to show.
+    var iconBackground: ThemeColor {
+        midTone.lightened(0.68)
     }
 
     /// What the title bar gets, which is not always what the icon gets.
@@ -199,8 +209,7 @@ struct ReaderTheme: Identifiable, Hashable {
     /// Line art over the bands wants whichever of white or the theme's own ink
     /// stands out against most of the ramp.
     var iconArtworkTint: NSColor {
-        let average = accents.reduce(0) { $0 + $1.luminance } / Double(accents.count)
-        return average < 0.55 ? .white : inkColor.nsColor
+        return .black
     }
 
     // MARK: - Type
@@ -210,11 +219,11 @@ struct ReaderTheme: Identifiable, Hashable {
     private static let sizeBump: CGFloat = 1
 
     static func serif(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size + sizeBump, weight: weight, design: .serif)
+        BrandTypeface.appFont(size + sizeBump, weight: weight)
     }
 
     static func sans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size + sizeBump, weight: weight, design: .default)
+        BrandTypeface.appFont(size + sizeBump, weight: weight)
     }
 
     // MARK: - The palettes
@@ -443,32 +452,32 @@ enum AppIconTheming {
 
         ThemePatternRenderer.fill(theme.iconStyle, in: path, stripeWidth: nil, starSeed: theme.starSeed)
 
+        // Keep the border inside the icon body so it reads as an inset keyline
+        // instead of a second outer edge that macOS can clip away.
+        let borderInset = size * 0.024
+        let borderPath = ThemePatternRenderer.squircle(in: squircleRect.insetBy(dx: borderInset, dy: borderInset))
+        NSColor.white.withAlphaComponent(0.86).setStroke()
+        borderPath.lineWidth = size * 0.009
+        borderPath.stroke()
+
         if let artwork,
            // Sized below the squircle edge so the candle stays clear of the
            // corners while reading as the main mark.
-           let embossed = embossedArtwork(artwork, tint: theme.iconArtworkTint, fillFraction: 0.92, in: squircleRect.size) {
+           let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 0.92, in: squircleRect.size) {
             let drawRect = NSRect(
-                x: squircleRect.midX - embossed.size.width / 2,
-                y: squircleRect.midY - embossed.size.height / 2,
-                width: embossed.size.width,
-                height: embossed.size.height
+                x: squircleRect.midX - artworkImage.size.width / 2,
+                y: squircleRect.midY - artworkImage.size.height / 2,
+                width: artworkImage.size.width,
+                height: artworkImage.size.height
             )
-            embossed.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            artworkImage.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1.0)
         }
 
         return image
     }
 
-    /// A raised, pressed-metal look rather than a flat cutout: a white
-    /// highlight offset up-left, a dark shadow offset down-right, and the
-    /// actual tinted artwork on top, each its own fully-composited layer
-    /// stacked with plain `.sourceOver`. Composited independently rather than
-    /// drawn cumulatively onto one canvas: drawing all three passes directly
-    /// on top of each other and re-tinting after each would recolor the
-    /// overlap between them, since `.sourceAtop`'s fill lands on *all*
-    /// opaque pixels accumulated so far, not just the ones the latest pass
-    /// just added.
-    private static func embossedArtwork(_ artwork: NSImage, tint: NSColor, fillFraction: CGFloat, in bounds: NSSize) -> NSImage? {
+    /// Recolors the original candle artwork without adding a shadow or relief.
+    private static func artworkImage(_ artwork: NSImage, tint: NSColor, fillFraction: CGFloat, in bounds: NSSize) -> NSImage? {
         let artworkAspect = artwork.size.width / max(artwork.size.height, 1)
         let targetWidth: CGFloat
         let targetHeight: CGFloat
@@ -481,22 +490,13 @@ enum AppIconTheming {
         }
         let artSize = NSSize(width: targetWidth, height: targetHeight)
 
-        let offset = max(targetWidth, targetHeight) * 0.018
-        let margin = offset * 3
-        let canvasSize = NSSize(width: targetWidth + margin * 2, height: targetHeight + margin * 2)
-        let origin = NSPoint(x: margin, y: margin)
-
-        guard let highlight = tintedLayer(artwork, tint: .white, size: artSize),
-              let shadow = tintedLayer(artwork, tint: .black, size: artSize),
-              let main = tintedLayer(artwork, tint: tint, size: artSize) else {
+        guard let main = tintedLayer(artwork, tint: tint, size: artSize) else {
             return nil
         }
 
-        let result = NSImage(size: canvasSize)
+        let result = NSImage(size: artSize)
         result.lockFocus()
-        highlight.draw(at: NSPoint(x: origin.x - offset, y: origin.y + offset), from: .zero, operation: .sourceOver, fraction: 0.8)
-        shadow.draw(at: NSPoint(x: origin.x + offset, y: origin.y - offset), from: .zero, operation: .sourceOver, fraction: 0.65)
-        main.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
+        main.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1.0)
         result.unlockFocus()
         return result
     }
