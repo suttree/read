@@ -9,6 +9,11 @@ enum ReadRoute: Hashable {
 
 @MainActor
 final class ReadAppModel: ObservableObject {
+    private struct SeenURLRecord: Codable {
+        let url: String
+        let seenAt: Date
+    }
+
     @Published var sources: [TrackedSource] = []
     @Published var stories: [Story] = []
     @Published var isRefreshing = false
@@ -86,9 +91,15 @@ final class ReadAppModel: ObservableObject {
     /// `ReadState`. Feed uses it to drop a story once you've read it; All
     /// keeps every story and just dims the ones in here.
     @Published private(set) var readStoryIDs: Set<String> = []
+    /// Recently read URLs are kept separately from the permanent read-state
+    /// IDs. This is the cheap refresh-time filter: it stops a source that
+    /// republishes the same item from putting it back in the queue, while the
+    /// ten-day expiry keeps the file bounded and lets old stories return.
+    private var seenURLAt: [String: Date] = [:]
 
     private static let themeStorageKey = "ReadTheme"
     private static let feedModeStorageKey = "ReadFeedMode"
+    private static let seenURLLifetime: TimeInterval = 10 * 24 * 60 * 60
 
     init() {
         let store = FileSourceStore(fileURL: Self.sourcesFileURL())
@@ -105,6 +116,7 @@ final class ReadAppModel: ObservableObject {
         voteHistory = (try? votes.loadVotes()) ?? []
         ranker = NaiveBayesRanker(votes: voteHistory)
         readStoryIDs = Set((try? readState.loadState())?.readIDs ?? [])
+        seenURLAt = (try? Self.loadSeenURLs()) ?? [:]
         let cachedEntries = (try? articleCacheFile.loadEntries()) ?? []
         for entry in cachedEntries {
             articleCache[entry.storyURL] = entry.article
@@ -116,6 +128,7 @@ final class ReadAppModel: ObservableObject {
         } else {
             self.feedMode = .feed
         }
+        pruneSeenURLs(persist: true)
     }
 
     private static func sourcesFileURL() -> URL {
@@ -138,6 +151,66 @@ final class ReadAppModel: ObservableObject {
         return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("articleCache.json")
     }
 
+    private static func seenURLsFileURL() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return appSupport.appendingPathComponent("Read", isDirectory: true).appendingPathComponent("seenURLs.json")
+    }
+
+    private static func loadSeenURLs() throws -> [String: Date] {
+        let data = try Data(contentsOf: seenURLsFileURL())
+        let records = try JSONDecoder().decode([SeenURLRecord].self, from: data)
+        return records.reduce(into: [:]) { result, record in
+            result[record.url] = record.seenAt
+        }
+    }
+
+    private func persistSeenURLs() {
+        let records = seenURLAt.map { SeenURLRecord(url: $0.key, seenAt: $0.value) }
+            .sorted { $0.seenAt > $1.seenAt }
+        guard let data = try? JSONEncoder().encode(records) else {
+            return
+        }
+        let fileURL = Self.seenURLsFileURL()
+        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: fileURL, options: .atomic)
+    }
+
+    private func pruneSeenURLs(now: Date = Date(), persist: Bool) {
+        let cutoff = now.addingTimeInterval(-Self.seenURLLifetime)
+        let before = seenURLAt.count
+        seenURLAt = seenURLAt.filter { $0.value >= cutoff }
+        if persist && seenURLAt.count != before {
+            persistSeenURLs()
+        }
+    }
+
+    private func seenURLKey(_ url: String) -> String {
+        guard var components = URLComponents(string: url) else {
+            return url
+        }
+        components.host = components.host?.lowercased()
+        components.fragment = nil
+        return components.string ?? url
+    }
+
+    private func isRecentlySeen(_ url: String, now: Date = Date()) -> Bool {
+        guard let seenAt = seenURLAt[seenURLKey(url)] else {
+            return false
+        }
+        return now.timeIntervalSince(seenAt) < Self.seenURLLifetime
+    }
+
+    private func markSeen(_ url: String) {
+        pruneSeenURLs(persist: false)
+        seenURLAt[seenURLKey(url)] = Date()
+        persistSeenURLs()
+    }
+
+    private func unmarkSeen(_ url: String) {
+        seenURLAt.removeValue(forKey: seenURLKey(url))
+        persistSeenURLs()
+    }
+
     private func persistArticleCache() {
         let entries = articleCache.compactMap { (url, article) -> ArticleCacheEntry? in
             ArticleCacheEntry(storyURL: url, article: article, fetchedAt: articleCacheFetchedAt[url] ?? Date())
@@ -154,15 +227,18 @@ final class ReadAppModel: ObservableObject {
     // MARK: - Read state
 
     func markRead(_ story: Story) {
-        guard readStoryIDs.insert(story.id).inserted else {
-            return
+        if readStoryIDs.insert(story.id).inserted {
+            persistReadState()
         }
-        persistReadState()
+        markSeen(story.storyURL)
     }
 
     func toggleRead(_ story: Story) {
         if !readStoryIDs.insert(story.id).inserted {
             readStoryIDs.remove(story.id)
+            unmarkSeen(story.storyURL)
+        } else {
+            markSeen(story.storyURL)
         }
         persistReadState()
     }
@@ -408,16 +484,33 @@ final class ReadAppModel: ObservableObject {
     // MARK: - Sources
 
     func addSource(urlString: String) {
-        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return
-        }
-        let normalized = trimmed.lowercased().hasPrefix("http") ? trimmed : "https://" + trimmed
-        guard URL(string: normalized) != nil else {
+        guard let normalized = normalizedSourceURL(urlString) else {
             return
         }
         sources.append(TrackedSource(url: normalized))
         persistSources()
+    }
+
+    func updateSourceURL(_ id: UUID, urlString: String) {
+        guard let normalized = normalizedSourceURL(urlString),
+              let index = sources.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        sources[index].url = normalized
+        stories.removeAll { $0.sourceID == id }
+        persistSources()
+    }
+
+    private func normalizedSourceURL(_ urlString: String) -> String? {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        let normalized = trimmed.lowercased().hasPrefix("http") ? trimmed : "https://" + trimmed
+        guard let url = URL(string: normalized), url.scheme?.hasPrefix("http") == true else {
+            return nil
+        }
+        return normalized
     }
 
     func removeSource(_ id: UUID) {
@@ -441,6 +534,7 @@ final class ReadAppModel: ObservableObject {
         hasSkippedRefreshScreen = false
         lastRefreshError = nil
         stories = []
+        pruneSeenURLs(persist: true)
 
         let sourcesSnapshot = sources
         var headlinesBySource: [UUID: [Story]] = [:]
@@ -522,6 +616,8 @@ final class ReadAppModel: ObservableObject {
                     headlinesBySource[sourceID] = sourceStories
                     completedSourceCount += 1
 
+                    let unseenStories = sourceStories.filter { !isRecentlySeen($0.storyURL) }
+
                     // Appended to the existing array and re-sorted in place,
                     // never rebuilt from `headlinesBySource` — enrichment is
                     // now running concurrently with sources still arriving
@@ -534,7 +630,7 @@ final class ReadAppModel: ObservableObject {
                     // descriptions. Sorting the array that's actually been
                     // mutated keeps those in place.
                     var seenStoryURLs = Set(stories.map(\.storyURL))
-                    for story in sourceStories where seenStoryURLs.insert(story.storyURL).inserted {
+                    for story in unseenStories where seenStoryURLs.insert(story.storyURL).inserted {
                         stories.append(story)
                     }
                     stories.sort { $0.fetchedAt > $1.fetchedAt }
@@ -543,7 +639,7 @@ final class ReadAppModel: ObservableObject {
                     // good — apply it straight to the card instead of
                     // hitting the network again for a page that was just
                     // fetched, and only queue the rest for a real fetch.
-                    for story in sourceStories {
+                    for story in unseenStories {
                         discoveredCount += 1
                         if let cached = articleCache[story.storyURL], let idx = stories.firstIndex(where: { $0.id == story.id }) {
                             resolvedCount += 1

@@ -146,6 +146,11 @@ final class ArticleFetcher {
         guard let url = URL(string: source.url) else {
             return []
         }
+
+        if let feedStories = await fetchFeedStories(from: source, url: url, limit: limit), !feedStories.isEmpty {
+            return feedStories
+        }
+
         let webView = Self.makeHeadlessWebView()
         await load(webView, url: url)
 
@@ -334,6 +339,106 @@ final class ArticleFetcher {
                 }
             }
 
+            // Some WordPress themes, including Web Curios, put post links in
+            // a block named `title` without using a heading element. Keep
+            // this fallback scoped to title-like blocks so ordinary prose
+            // links do not turn into stories.
+            if (out.length < 3) {
+                var titleLinks = queryAllDeep('.title a[href], [class*="entry-title" i] a[href], [class*="post-title" i] a[href]');
+                for (var k = 0; k < titleLinks.length && out.length < \(limit); k++) {
+                    var titleLink = titleLinks[k];
+                    if (isBoilerplate(titleLink)) continue;
+                    var titleHref = titleLink.getAttribute('href') || '';
+                    var titleLinkText = titleLink.innerText.trim().replace(/\\s+/g, ' ');
+                    if (titleLinkText.length < 8 || titleLinkText.length > 160) continue;
+                    if (isJunkTitle(titleLinkText) || isJunkLink(titleHref)) continue;
+                    if (seen[titleLinkText] || seenURL[titleLink.href]) continue;
+                    seen[titleLinkText] = true;
+                    seenURL[titleLink.href] = true;
+                    out.push({ title: titleLinkText, url: titleLink.href, image: findImage(titleLink) });
+                }
+            }
+
+            // A few sources use application-specific markup that deliberately
+            // does not resemble a conventional news homepage. Keep these
+            // selectors host-scoped so they cannot turn unrelated navigation
+            // into stories for other feeds.
+            var host = location.hostname.toLowerCase();
+            if (host === 'www.reddit.com' || host === 'reddit.com') {
+                var redditPosts = queryAllDeep('shreddit-post');
+                for (var r = 0; r < redditPosts.length && out.length < \(limit); r++) {
+                    var post = redditPosts[r];
+                    var redditTitle = (post.getAttribute('post-title') || '').trim();
+                    var redditHref = post.getAttribute('content-href') || '';
+                    var redditLink = post.querySelector('a[slot="full-post-link"], a[href*="/comments/"]');
+                    if (!redditHref && redditLink) redditHref = redditLink.href;
+                    if (!redditTitle && redditLink) redditTitle = redditLink.innerText.trim();
+                    if (!redditTitle || redditTitle.length < 8 || !redditHref) continue;
+                    if (isJunkTitle(redditTitle) || isJunkLink(redditHref) || seenURL[redditHref]) continue;
+                    seen[redditTitle] = true;
+                    seenURL[redditHref] = true;
+                    out.push({ title: redditTitle, url: redditHref, image: findImage(post) });
+                }
+            } else if (host === 'www.patreon.com' || host === 'patreon.com') {
+                var patreonLinks = queryAllDeep('a[href*="/posts/"]');
+                for (var p = 0; p < patreonLinks.length && out.length < \(limit); p++) {
+                    var patreonLink = patreonLinks[p];
+                    var patreonHref = patreonLink.href;
+                    var patreonTitle = (patreonLink.getAttribute('aria-label') || patreonLink.getAttribute('title') || patreonLink.innerText || '').trim().replace(/\\s+/g, ' ');
+                    if (patreonTitle.length < 8 || patreonTitle.length > 160) continue;
+                    if (isJunkTitle(patreonTitle) || isJunkLink(patreonHref) || seenURL[patreonHref]) continue;
+                    seen[patreonTitle] = true;
+                    seenURL[patreonHref] = true;
+                    out.push({ title: patreonTitle, url: patreonHref, image: findImage(patreonLink) });
+                }
+            } else if (host === 'technorati.com' || host === 'www.technorati.com') {
+                var technoratiLinks = queryAllDeep('[class*="card" i] a[href], [class*="story" i] a[href], [class*="headline" i] a[href]');
+                for (var t = 0; t < technoratiLinks.length && out.length < \(limit); t++) {
+                    var technoratiLink = technoratiLinks[t];
+                    var technoratiTitle = (technoratiLink.getAttribute('aria-label') || technoratiLink.getAttribute('title') || technoratiLink.innerText || '').trim().replace(/\\s+/g, ' ');
+                    if (technoratiTitle.length < 8 || technoratiTitle.length > 160) continue;
+                    if (isJunkTitle(technoratiTitle) || isJunkLink(technoratiLink.href) || seenURL[technoratiLink.href]) continue;
+                    seen[technoratiTitle] = true;
+                    seenURL[technoratiLink.href] = true;
+                    out.push({ title: technoratiTitle, url: technoratiLink.href, image: findImage(technoratiLink) });
+                }
+            } else if (host === 'www.404media.co' || host === '404media.co') {
+                var fourOhFourLinks = queryAllDeep('.post-card__title a[href]');
+                for (var f = 0; f < fourOhFourLinks.length && out.length < \(limit); f++) {
+                    var fourOhFourLink = fourOhFourLinks[f];
+                    var fourOhFourTitle = (fourOhFourLink.getAttribute('aria-label') || fourOhFourLink.getAttribute('title') || fourOhFourLink.innerText || '').trim().replace(/\\s+/g, ' ');
+                    if (fourOhFourTitle.length < 8 || fourOhFourTitle.length > 160) continue;
+                    if (isJunkTitle(fourOhFourTitle) || isJunkLink(fourOhFourLink.href) || seenURL[fourOhFourLink.href]) continue;
+                    seen[fourOhFourTitle] = true;
+                    seenURL[fourOhFourLink.href] = true;
+                    out.push({ title: fourOhFourTitle, url: fourOhFourLink.href, image: findImage(fourOhFourLink) });
+                }
+            } else if (host === 'www.bbc.com' || host === 'bbc.com') {
+                var bbcLinks = queryAllDeep('[data-testid="card-headline"] a[href], [data-testid="card-headline"]');
+                for (var b = 0; b < bbcLinks.length && out.length < \(limit); b++) {
+                    var bbcHeading = bbcLinks[b];
+                    var bbcFound = bbcHeading.matches('a[href]') ? { link: bbcHeading, container: bbcHeading } : findLink(bbcHeading);
+                    if (!bbcFound) continue;
+                    var bbcTitle = bbcHeading.innerText.trim().replace(/\\s+/g, ' ');
+                    if (bbcTitle.length < 8 || bbcTitle.length > 160) continue;
+                    if (isJunkTitle(bbcTitle) || isJunkLink(bbcFound.link.href) || seenURL[bbcFound.link.href]) continue;
+                    seen[bbcTitle] = true;
+                    seenURL[bbcFound.link.href] = true;
+                    out.push({ title: bbcTitle, url: bbcFound.link.href, image: findImage(bbcFound.container) });
+                }
+            } else if (host === 'cutcher.co.uk' || host === 'www.cutcher.co.uk') {
+                var cutcherLinks = queryAllDeep('article.linklog header h2 a[href]');
+                for (var c = 0; c < cutcherLinks.length && out.length < \(limit); c++) {
+                    var cutcherLink = cutcherLinks[c];
+                    var cutcherTitle = cutcherLink.innerText.trim().replace(/\\s+/g, ' ');
+                    if (cutcherTitle.length < 8 || cutcherTitle.length > 160) continue;
+                    if (isJunkTitle(cutcherTitle) || isJunkLink(cutcherLink.href) || seenURL[cutcherLink.href]) continue;
+                    seen[cutcherTitle] = true;
+                    seenURL[cutcherLink.href] = true;
+                    out.push({ title: cutcherTitle, url: cutcherLink.href, image: findImage(cutcherLink) });
+                }
+            }
+
             return out;
         })();
         """
@@ -350,6 +455,129 @@ final class ArticleFetcher {
                 sourceName: sourceName,
                 imageURL: row["image"] as? String
             )
+        }
+    }
+
+    /// Reads RSS 2.0 and Atom URLs directly. A direct feed is both faster and
+    /// more reliable than rendering its publisher's homepage, while a normal
+    /// webpage still falls through to the WebKit parser above.
+    private func fetchFeedStories(from source: TrackedSource, url: URL, limit: Int) async -> [Story]? {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8", forHTTPHeaderField: "Accept")
+        request.setValue(Self.safariUserAgent, forHTTPHeaderField: "User-Agent")
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              (200..<400).contains(httpResponse.statusCode),
+              let parser = FeedParser(data: data, baseURL: url),
+              parser.parse(),
+              !parser.entries.isEmpty else {
+            return nil
+        }
+
+        let sourceName = source.name.isEmpty ? (url.host ?? source.url) : source.name
+        return parser.entries.prefix(limit).compactMap { entry in
+            guard let title = entry.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  title.count >= 3,
+                  let rawURL = entry.link?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let storyURL = URL(string: rawURL, relativeTo: url)?.absoluteURL.absoluteString else {
+                return nil
+            }
+            return Story(
+                title: title,
+                storyURL: storyURL,
+                sourceID: source.id,
+                sourceName: sourceName,
+                imageURL: entry.image.flatMap { URL(string: $0, relativeTo: url)?.absoluteURL.absoluteString }
+            )
+        }
+    }
+
+    private final class FeedParser: NSObject, XMLParserDelegate {
+        struct Entry {
+            var title: String?
+            var link: String?
+            var image: String?
+        }
+
+        let data: Data
+        let baseURL: URL
+        private(set) var entries: [Entry] = []
+        private var currentEntry: Entry?
+        private var currentField: String?
+        private var textBuffer = ""
+
+        init?(data: Data, baseURL: URL) {
+            guard !data.isEmpty else { return nil }
+            self.data = data
+            self.baseURL = baseURL
+        }
+
+        func parse() -> Bool {
+            let parser = XMLParser(data: data)
+            parser.delegate = self
+            return parser.parse()
+        }
+
+        func parser(_ parser: XMLParser, didStartElement elementName: String,
+                    namespaceURI: String?, qualifiedName qName: String?,
+                    attributes attributeDict: [String: String] = [:]) {
+            let element = elementName.lowercased()
+            if element == "item" || element == "entry" {
+                currentEntry = Entry()
+                currentField = nil
+                textBuffer = ""
+                return
+            }
+            guard currentEntry != nil else { return }
+
+            if element == "link" {
+                if let href = attributeDict["href"], !href.isEmpty {
+                    currentEntry?.link = href
+                } else {
+                    currentField = "link"
+                    textBuffer = ""
+                }
+            } else if element == "title" {
+                currentField = "title"
+                textBuffer = ""
+            } else if element == "media:content" || element == "media:thumbnail" || element == "enclosure" {
+                if currentEntry?.image == nil,
+                   let mediaURL = attributeDict["url"] ?? attributeDict["href"],
+                   attributeDict["type"]?.lowercased().hasPrefix("image/") != false {
+                    currentEntry?.image = mediaURL
+                }
+            }
+        }
+
+        func parser(_ parser: XMLParser, foundCharacters string: String) {
+            guard currentField != nil else { return }
+            textBuffer.append(string)
+        }
+
+        func parser(_ parser: XMLParser, didEndElement elementName: String,
+                    namespaceURI: String?, qualifiedName qName: String?) {
+            let element = elementName.lowercased()
+            if element == "item" || element == "entry" {
+                if let currentEntry {
+                    entries.append(currentEntry)
+                }
+                self.currentEntry = nil
+                currentField = nil
+                textBuffer = ""
+                return
+            }
+            guard let currentField, currentField == element else { return }
+            let value = textBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+            if currentField == "title" {
+                self.currentEntry?.title = value
+            } else if currentField == "link", self.currentEntry?.link == nil {
+                self.currentEntry?.link = value
+            }
+            self.currentField = nil
+            textBuffer = ""
         }
     }
 
@@ -430,7 +658,17 @@ final class ArticleFetcher {
             // candidates in order and stopping at the first with real body text
             // keeps the tail out instead.
             var h1 = document.querySelector('h1');
-            var titleText = h1 ? h1.innerText.trim() : document.title;
+            var h1Text = h1 ? h1.innerText.trim() : '';
+            var ogTitleElement = document.querySelector('meta[property="og:title"], meta[name="twitter:title"]');
+            var ogTitle = ogTitleElement ? (ogTitleElement.getAttribute('content') || '').trim() : '';
+            // Some small blogs use their site masthead as the only h1 and put
+            // the post title in og:title. A masthead link back to / is a
+            // reliable signal that the h1 is branding, not the story title.
+            var h1IsMasthead = h1 && (
+                h1.querySelector('a[href="/"]') ||
+                (document.title && document.title.toLowerCase().indexOf(h1Text.toLowerCase()) === 0)
+            );
+            var titleText = h1Text && !h1IsMasthead ? h1Text : (ogTitle || document.title);
             // Roots paired with whether they're specific enough to trust:
             // a named article container or the <article> holding the headline
             // is the story itself, so its <header> is part of the story. A
@@ -441,7 +679,7 @@ final class ArticleFetcher {
             // querySelector finds a container holding a single paragraph and
             // the search falls through to a root wide enough to sweep in the
             // next post down the page.
-            var named = Array.from(document.querySelectorAll('[itemprop="articleBody"], [class*="article-body" i], [class*="articlebody" i], [class*="post-content" i], [class*="entry-content" i], [class*="story-body" i]'));
+            var named = Array.from(document.querySelectorAll('[itemprop="articleBody"], [data-pagefind-body], [data-component="text-block"], [class*="article-body" i], [class*="articlebody" i], [class*="post-content" i], [class*="post__content" i], [class*="entry-content" i], [class*="story-body" i]'));
             if (named.length) roots.push({ els: named, trusted: true });
             // The <article> holding the headline is the story; the others on
             // the page are teaser cards for something else.
@@ -578,6 +816,20 @@ final class ArticleFetcher {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             finish()
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
+            guard let scheme = navigationAction.request.url?.scheme?.lowercased(),
+                  ["http", "https", "about", "data", "file"].contains(scheme) else {
+                // Article pages sometimes contain podcast or media links that
+                // use a custom URL scheme. The headless extractor must never
+                // hand those URLs to macOS and launch another app during a
+                // refresh.
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

@@ -6,6 +6,8 @@ struct SettingsView: View {
     @Environment(\.readerTheme) private var theme
 
     @State private var newSourceURL = ""
+    @State private var editingSourceID: UUID?
+    @State private var editingSourceURL = ""
     @State private var section: Section = .sources
 
     private enum Section: String, CaseIterable, Identifiable {
@@ -47,34 +49,64 @@ struct SettingsView: View {
     }
 
     private var sourcesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
                 Text("Tracked Sources")
                     .font(ReaderTheme.sans(13, weight: .semibold))
                     .foregroundStyle(theme.ink)
-                Text("Read pulls headlines from each site's front page.")
+                Text("Paste a website URL or an RSS/Atom feed URL. Read will pull stories from either.")
                     .font(ReaderTheme.sans(12))
                     .foregroundStyle(theme.inkSecondary)
 
                 List {
-                    ForEach(model.sources) { source in
-                        HStack {
-                            Text(source.url)
-                                .lineLimit(1)
-                            Spacer()
-                            Button(role: .destructive) {
-                                model.removeSource(source.id)
-                            } label: {
-                                Image(systemName: "trash")
+                    ForEach(model.sources.sorted {
+                        $0.url.localizedStandardCompare($1.url) == .orderedAscending
+                    }) { source in
+                        if editingSourceID == source.id {
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("Source URL", text: $editingSourceURL)
+                                    .textFieldStyle(.roundedBorder)
+                                    .onSubmit { saveSource(source.id) }
+                                HStack(spacing: 8) {
+                                    Button("Save") { saveSource(source.id) }
+                                    Button("Cancel") { cancelEditing() }
+                                    Spacer()
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 4)
+                        } else {
+                            HStack {
+                                Text(source.url)
+                                    .lineLimit(1)
+                                Spacer()
+                                Button {
+                                    editingSourceID = source.id
+                                    editingSourceURL = source.url
+                                } label: {
+                                    Image(systemName: "pencil")
+                                }
+                                .buttonStyle(.plain)
+                                .help("Edit source URL")
+                                Button(role: .destructive) {
+                                    model.removeSource(source.id)
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 4)
                         }
                     }
                 }
                 .frame(height: 260)
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
 
                 HStack {
-                    TextField("https://example.com", text: $newSourceURL)
+                    TextField("https://example.com or https://example.com/feed.xml", text: $newSourceURL)
                         .textFieldStyle(.roundedBorder)
+                        .padding(.vertical, 2)
                         .onSubmit(addSource)
                     Button("Add", action: addSource)
                         .disabled(newSourceURL.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -85,6 +117,16 @@ struct SettingsView: View {
     private func addSource() {
         model.addSource(urlString: newSourceURL)
         newSourceURL = ""
+    }
+
+    private func saveSource(_ id: UUID) {
+        model.updateSourceURL(id, urlString: editingSourceURL)
+        cancelEditing()
+    }
+
+    private func cancelEditing() {
+        editingSourceID = nil
+        editingSourceURL = ""
     }
 }
 
