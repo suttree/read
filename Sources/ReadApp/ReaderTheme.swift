@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+struct EmbossedTextModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: .white, radius: 1, x: 0, y: 1)
+    }
+}
+
+extension View {
+    func embossedText() -> some View {
+        modifier(EmbossedTextModifier())
+    }
+}
+
 /// One colour from a palette, kept as plain components rather than a `Color`
 /// or an `NSColor` so it can be handed to SwiftUI and AppKit alike, and blended
 /// without round-tripping through either one's colour space.
