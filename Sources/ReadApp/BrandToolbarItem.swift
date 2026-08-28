@@ -36,12 +36,17 @@ private struct BrandWordmark: View {
 
     var body: some View {
         Button(action: goHome) {
-            Text("Read")
-                .font(BrandTypeface.wordmark(15, weight: .semibold))
-                .foregroundStyle(theme.headerInk)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 6)
-                .contentShape(Rectangle())
+            HStack(spacing: 5) {
+                Image(nsImage: theme.iconImage(size: 64))
+                    .resizable()
+                    .frame(width: 18, height: 18)
+                Text("Read")
+                    .font(BrandTypeface.wordmark(15, weight: .semibold))
+            }
+            .foregroundStyle(theme.headerInk)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("Back to the top of page 1")
