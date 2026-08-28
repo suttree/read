@@ -4,7 +4,7 @@ import SwiftUI
 struct EmbossedTextModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .shadow(color: .white, radius: 1, x: 0, y: 1)
+            .shadow(color: .black.opacity(0.18), radius: 1, x: 0, y: 1)
     }
 }
 

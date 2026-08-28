@@ -59,6 +59,7 @@ private struct HeaderLink: View {
     let action: () -> Void
 
     @Environment(\.readerTheme) private var theme
+    @State private var isHovering = false
 
     init(title: String, isActive: Bool, isEnabled: Bool = true, action: @escaping () -> Void) {
         self.title = title
@@ -70,13 +71,14 @@ private struct HeaderLink: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(BrandTypeface.wordmark(14, weight: isActive ? .bold : .medium))
+                .font(BrandTypeface.wordmark(14, weight: isActive || isHovering ? .bold : .medium))
                 .foregroundStyle(theme.headerInk)
-                // Matches duncangough.com: one light offset, with no dark
-                // counter-shadow on these small navigation labels.
-                .shadow(color: .white, radius: 1, x: 0, y: 1)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .onHover { hovering in
+            guard isEnabled else { return }
+            isHovering = hovering
+        }
     }
 }
