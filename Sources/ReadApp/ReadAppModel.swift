@@ -254,9 +254,9 @@ final class ReadAppModel: ObservableObject {
     // MARK: - Feed ordering
 
     /// What each mode shows. Feed is the ranked recommendation stream, with
-    /// read stories kept in place and dimmed so the reading history stays
-    /// visible. All is everything pulled, in fetch order, with the same read
-    /// state treatment.
+    /// unread stories first and read stories kept below them, dimmed so the
+    /// reading history stays visible. All is everything pulled, in fetch
+    /// order, with the same read state treatment.
     ///
     /// Until the ranker has enough ratings to score anything, every bolt is
     /// lit and Feed matches All minus whatever's been read.
@@ -288,7 +288,9 @@ final class ReadAppModel: ObservableObject {
                 }
             }
         }
-        return candidates
+        let unread = candidates.filter { !readStoryIDs.contains($0.id) }
+        let read = candidates.filter { readStoryIDs.contains($0.id) }
+        return unread + read
     }
 
     /// Feed's ordering before read state is applied — used by `visibleStories`
