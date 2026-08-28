@@ -20,7 +20,11 @@ struct BrandToolbarItem: ToolbarContent {
 
     private var wordmark: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            BrandWordmark(goHome: goHome)
+            HStack(spacing: 8) {
+                Color.clear
+                    .frame(width: 20, height: 24)
+                BrandWordmark(goHome: goHome)
+            }
         }
     }
 }
@@ -33,9 +37,8 @@ private struct BrandWordmark: View {
     var body: some View {
         Button(action: goHome) {
             Text("Read")
-                .font(BrandTypeface.wordmark(15))
+                .font(BrandTypeface.wordmark(15, weight: .semibold))
                 .foregroundStyle(theme.headerInk)
-                .underline()
                 .padding(.vertical, 4)
                 .padding(.horizontal, 6)
                 .contentShape(Rectangle())
@@ -54,6 +57,7 @@ private struct BrandWordmark: View {
 struct PermalinkBrandToolbarItem: ToolbarContent {
     let title: String
     let goHome: () -> Void
+    @Environment(\.readerTheme) private var theme
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -67,6 +71,15 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
     private var content: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             HStack(spacing: 8) {
+                Button(action: goHome) {
+                    Image(systemName: "chevron.left")
+                        .font(BrandTypeface.appFont(12, weight: .semibold))
+                        .frame(width: 20, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.headerInk)
+                .help("Back to the feed")
                 BrandWordmark(goHome: goHome)
                 PermalinkTitleBreadcrumb(title: title)
             }
@@ -85,11 +98,12 @@ private struct PermalinkTitleBreadcrumb: View {
                 .font(BrandTypeface.wordmark(16, weight: .bold))
                 .foregroundStyle(theme.headerInk.opacity(0.35))
             Text(title)
-                .font(ReaderTheme.serif(14, weight: .medium))
+                .font(ReaderTheme.serif(14, weight: .semibold))
                 .foregroundStyle(theme.headerInk.opacity(0.8))
                 .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: 320, alignment: .leading)
+                .minimumScaleFactor(0.55)
+                .allowsTightening(true)
+                .layoutPriority(1)
         }
     }
 }

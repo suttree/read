@@ -14,6 +14,7 @@ struct HomepageView: View {
     /// forwards, Space opens the selected card, x flips its bolt, and r marks
     /// it read without opening it.
     @State private var selectedStoryID: String?
+    @State private var selectedAllSourceID: UUID?
     @FocusState private var isListFocused: Bool
 
     /// How far the top of the content sits from the top of the scroll view,
@@ -35,7 +36,11 @@ struct HomepageView: View {
     private static let pullRearmDistance: CGFloat = 12
 
     private var filteredStories: [Story] {
-        model.visibleStories(from: model.stories)
+        let stories = model.visibleStories(from: model.stories)
+        guard model.feedMode == .all, let selectedAllSourceID else {
+            return stories
+        }
+        return stories.filter { $0.sourceID == selectedAllSourceID }
     }
 
     private var pageCount: Int {
@@ -50,6 +55,13 @@ struct HomepageView: View {
         }
         let end = min(start + pageSize, stories.count)
         return Array(stories[start..<end])
+    }
+
+    private var selectedAllSource: TrackedSource? {
+        guard let selectedAllSourceID else {
+            return nil
+        }
+        return model.sources.first { $0.id == selectedAllSourceID }
     }
 
     var body: some View {
@@ -118,42 +130,79 @@ struct HomepageView: View {
 
                     if model.sources.isEmpty {
                         emptyState
-                    } else if model.stories.isEmpty, !model.isRefreshing {
-                        Text("No stories yet — hit refresh to pull the latest from your tracked sources.")
-                            .font(ReaderTheme.sans(14))
-                            .foregroundStyle(theme.inkSecondary)
-                    } else if filteredStories.isEmpty, model.feedMode == .feed {
-                        allClearState
                     } else {
-                        if currentPage > 0 {
-                            paginationControls(proxy: scrollProxy)
-                                .padding(.bottom, 20)
-                        }
+                        HStack(alignment: .top, spacing: 24) {
+                                if model.feedMode == .all {
+                                    AllSourceSidebar(
+                                        sources: model.sources,
+                                        selectedSourceID: selectedAllSourceID,
+                                        select: { sourceID in
+                                            selectedAllSourceID = sourceID
+                                            currentPage = 0
+                                            selectedStoryID = nil
+                                            scrollToTop(scrollProxy)
+                                        }
+                                    )
+                                    .frame(width: 150, alignment: .leading)
+                                }
 
-                        VStack(spacing: 0) {
-                            ForEach(pagedStories) { story in
-                                StoryRow(
-                                    story: story,
-                                    isEnriching: story.excerpt == nil && model.isRefreshing,
-                                    isSelected: story.id == selectedStoryID,
-                                    isRated: model.isRated(story),
-                                    isRead: model.isRead(story),
-                                    select: { model.openStory(story) },
-                                    toggleRating: { model.toggleRating(story) }
-                                )
-                                .id(story.id)
-                            }
-                        }
+                                VStack(alignment: .leading, spacing: 0) {
+                                    if model.feedMode == .all {
+                                        Text(selectedAllSource?.url ?? "All sources")
+                                            .font(ReaderTheme.serif(18, weight: .semibold))
+                                            .foregroundStyle(theme.ink)
+                                            .textSelection(.enabled)
+                                            .padding(.bottom, 16)
+                                    }
 
-                        if filteredStories.count > pageSize {
-                            paginationControls(proxy: scrollProxy)
-                                .padding(.top, 20)
+                                    if model.stories.isEmpty, !model.isRefreshing {
+                                        Text("No stories yet — hit refresh to pull the latest from your tracked sources.")
+                                            .font(ReaderTheme.sans(14))
+                                            .foregroundStyle(theme.inkSecondary)
+                                    } else if filteredStories.isEmpty, model.feedMode == .feed {
+                                        allClearState
+                                    } else if filteredStories.isEmpty {
+                                        Text("No stories from this source yet.")
+                                            .font(ReaderTheme.sans(14))
+                                            .foregroundStyle(theme.inkSecondary)
+                                    } else {
+                                        if currentPage > 0 {
+                                            paginationControls(proxy: scrollProxy)
+                                                .padding(.bottom, 20)
+                                        }
+
+                                        VStack(spacing: 0) {
+                                            ForEach(pagedStories) { story in
+                                                StoryRow(
+                                                    story: story,
+                                                    isEnriching: story.excerpt == nil && model.isRefreshing,
+                                                    isSelected: story.id == selectedStoryID,
+                                                    isRated: model.isRated(story),
+                                                    isRead: model.isRead(story),
+                                                    select: { model.openStory(story) },
+                                                    toggleRating: { model.toggleRating(story) }
+                                                )
+                                                .id(story.id)
+                                            }
+                                        }
+
+                                        if filteredStories.count > pageSize {
+                                            paginationControls(proxy: scrollProxy)
+                                                .padding(.top, 20)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 10)
-                .padding(.bottom, 28)
+                .padding(.horizontal, 32)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
                 .frame(maxWidth: 720)
                 .frame(maxWidth: .infinity)
                 }
@@ -186,6 +235,9 @@ struct HomepageView: View {
             .onChange(of: model.feedMode) {
                 currentPage = 0
                 selectedStoryID = nil
+                if model.feedMode == .feed {
+                    selectedAllSourceID = nil
+                }
                 scrollToTop(scrollProxy)
             }
         }
@@ -266,6 +318,19 @@ struct HomepageView: View {
     }
 
     private func handleKeyPress(_ press: KeyPress, proxy: ScrollViewProxy) -> KeyPress.Result {
+        if press.modifiers.contains(.command) {
+            switch press.key {
+            case .upArrow:
+                scrollToTop(proxy)
+                return .handled
+            case .downArrow:
+                scrollToBottom(proxy)
+                return .handled
+            default:
+                break
+            }
+        }
+
         guard !pagedStories.isEmpty else {
             return .ignored
         }
@@ -341,6 +406,12 @@ struct HomepageView: View {
             }
             try? await Task.sleep(for: .milliseconds(260))
             proxy.scrollTo("top", anchor: .top)
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            proxy.scrollTo("bottom", anchor: .bottom)
         }
     }
 
@@ -539,11 +610,11 @@ private struct StoryRow: View {
 
                 if let excerpt = story.excerpt, !excerpt.isEmpty {
                     Text(excerpt)
-                        .font(ReaderTheme.serif(14))
+                        .font(ReaderTheme.serif(15))
                         .foregroundStyle(theme.inkSecondary)
                         .multilineTextAlignment(.leading)
                         .lineLimit(12)
-                        .lineSpacing(3)
+                        .lineSpacing(4)
                 } else if isEnriching {
                     HStack(spacing: 8) {
                         RefinedLoader()
@@ -554,7 +625,7 @@ private struct StoryRow: View {
                     .padding(.top, 2)
                 }
             }
-            .padding(.vertical, 18)
+            .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 6)
@@ -588,6 +659,74 @@ private struct TimelineRail: View {
             .padding(.top, 16)
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+private struct AllSourceSidebar: View {
+    let sources: [TrackedSource]
+    let selectedSourceID: UUID?
+    let select: (UUID?) -> Void
+
+    @Environment(\.readerTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Sources")
+                .font(ReaderTheme.serif(16, weight: .semibold))
+                .foregroundStyle(theme.ink)
+                .padding(.bottom, 6)
+
+            SourceFilterButton(title: "All sources", isSelected: selectedSourceID == nil) {
+                select(nil)
+            }
+
+            ForEach(sources.sorted { lhs, rhs in
+                displayName(for: lhs).localizedStandardCompare(displayName(for: rhs)) == .orderedAscending
+            }) { source in
+                SourceFilterButton(
+                    title: displayName(for: source),
+                    isSelected: selectedSourceID == source.id
+                ) {
+                    select(source.id)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2)
+    }
+
+    private func displayName(for source: TrackedSource) -> String {
+        if !source.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return source.name
+        }
+        guard let host = URL(string: source.url)?.host else {
+            return source.url
+        }
+        return host.replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression)
+    }
+}
+
+private struct SourceFilterButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.readerTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ReaderTheme.sans(12, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? theme.ink : theme.inkSecondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(isSelected ? theme.paperInset : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -18,7 +18,7 @@ struct RatingButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: isLit ? "bolt.fill" : "bolt")
-                .font(.system(size: 13, weight: isLit ? .semibold : .regular))
+                .font(BrandTypeface.appFont(13, weight: isLit ? .semibold : .regular))
                 .foregroundStyle(color)
                 .background(Circle().fill(theme.paper).frame(width: 11, height: 11))
         }

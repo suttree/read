@@ -11,8 +11,13 @@ struct PermalinkView: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Color.clear
+                        .frame(height: 1)
+                        .id("top")
+
                 Text(story.sourceName.uppercased())
                     .font(ReaderTheme.sans(11, weight: .semibold))
                     .tracking(0.6)
@@ -48,9 +53,9 @@ struct PermalinkView: View {
 
                     if let article {
                         Text(article.bodyText)
-                            .font(ReaderTheme.serif(16))
+                        .font(ReaderTheme.serif(17))
                             .foregroundStyle(theme.ink)
-                            .lineSpacing(6)
+                            .lineSpacing(7)
                             .textSelection(.enabled)
                     } else {
                         Text("Couldn't load the full text for this story.")
@@ -66,10 +71,21 @@ struct PermalinkView: View {
                     .font(ReaderTheme.sans(13, weight: .medium))
                     .padding(.top, 12)
                 }
+
+                Color.clear
+                    .frame(height: 1)
+                    .id("bottom")
             }
-            .padding(28)
+            .padding(32)
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
+            .focusable()
+            .focusEffectDisabled()
+            .focused($isFocused)
+            .onKeyPress { press in
+                handleKeyPress(press, proxy: scrollProxy)
+            }
+            }
         }
         .background(theme.texturedPaper)
         .preferredColorScheme(.light)
@@ -80,17 +96,38 @@ struct PermalinkView: View {
         // that — the two running together with no separator at all was
         // exactly the problem.
         .navigationTitle("")
+        .navigationBarBackButtonHidden(true)
         .toolbarBackground(theme.headerPaint, for: .windowToolbar)
         .toolbar {
             PermalinkBrandToolbarItem(title: article?.title ?? story.title) {
                 model.goHome()
             }
+            ToolbarItem(placement: .automatic) {
+                if model.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 24, height: 20)
+                } else {
+                    Button {
+                        Task { await model.refresh() }
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .foregroundStyle(theme.headerInk)
+                    .disabled(model.sources.isEmpty)
+                }
+            }
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    model.isShowingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .foregroundStyle(theme.headerInk)
+            }
         }
-        .focusable()
-        .focusEffectDisabled()
-        .focused($isFocused)
-        .onKeyPress { press in
-            handleKeyPress(press)
+        .sheet(isPresented: $model.isShowingSettings) {
+            SettingsView(model: model)
         }
         .onAppear {
             isFocused = true
@@ -110,7 +147,24 @@ struct PermalinkView: View {
     /// the story already marked it read; this is for undoing that), and Esc or
     /// Backspace jumps straight back to the feed. A story's own page acts as a mini reading session rather than
     /// a one-off page you always have to go back to the list from.
-    private func handleKeyPress(_ press: KeyPress) -> KeyPress.Result {
+    private func handleKeyPress(_ press: KeyPress, proxy: ScrollViewProxy) -> KeyPress.Result {
+        if press.modifiers.contains(.command) {
+            switch press.key {
+            case .upArrow:
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo("top", anchor: .top)
+                }
+                return .handled
+            case .downArrow:
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+                return .handled
+            default:
+                break
+            }
+        }
+
         switch press.characters {
         case "j":
             model.showAdjacentStory(from: story, offset: 1)
