@@ -20,49 +20,18 @@ struct BrandToolbarItem: ToolbarContent {
 
     private var wordmark: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            HStack(spacing: 8) {
-                Color.clear
-                    .frame(width: 20, height: 24)
-                BrandWordmark(goHome: goHome)
+            HStack(spacing: 14) {
+                HeaderLink(title: "< Back", isActive: false, isEnabled: false) {}
+                HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
     }
 }
 
-private struct BrandWordmark: View {
-    let goHome: () -> Void
-
-    @Environment(\.readerTheme) private var theme
-
-    var body: some View {
-        Button(action: goHome) {
-            HStack(spacing: 5) {
-                Image(nsImage: theme.iconImage(size: 64))
-                    .resizable()
-                    .frame(width: 18, height: 18)
-                Text("Read")
-                    .font(BrandTypeface.wordmark(15, weight: .semibold))
-            }
-            .foregroundStyle(theme.headerInk)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Back to the top of page 1")
-    }
-}
-
-/// The permalink page's header: the same "Read" wordmark as the feed, plus a
-/// middot and the article's own title, so the two don't run together the way
-/// plain window-title text butted right up against the wordmark did. Built as
-/// one toolbar item rather than two separate ones so macOS 26's glass
-/// background — drawn per item, not per view inside one — wraps the whole
-/// header as a single piece instead of two adjacent bubbles.
+/// The permalink page's header: the active back link followed by Home. Built
+/// as one toolbar item so the two labels read as a single navigation group.
 struct PermalinkBrandToolbarItem: ToolbarContent {
-    let title: String
     let goHome: () -> Void
-    @Environment(\.readerTheme) private var theme
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -75,40 +44,39 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
 
     private var content: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            HStack(spacing: 8) {
-                Button(action: goHome) {
-                    Image(systemName: "chevron.left")
-                        .font(BrandTypeface.appFont(12, weight: .semibold))
-                        .frame(width: 20, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(theme.headerInk)
-                .help("Back to the feed")
-                BrandWordmark(goHome: goHome)
-                PermalinkTitleBreadcrumb(title: title)
+            HStack(spacing: 14) {
+                HeaderLink(title: "< Back", isActive: true, action: goHome)
+                HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
     }
 }
 
-private struct PermalinkTitleBreadcrumb: View {
+private struct HeaderLink: View {
     let title: String
+    let isActive: Bool
+    let isEnabled: Bool
+    let action: () -> Void
 
     @Environment(\.readerTheme) private var theme
 
+    init(title: String, isActive: Bool, isEnabled: Bool = true, action: @escaping () -> Void) {
+        self.title = title
+        self.isActive = isActive
+        self.isEnabled = isEnabled
+        self.action = action
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Text("\u{00B7}")
-                .font(BrandTypeface.wordmark(16, weight: .bold))
-                .foregroundStyle(theme.headerInk.opacity(0.35))
+        Button(action: action) {
             Text(title)
-                .font(ReaderTheme.serif(14, weight: .semibold))
-                .foregroundStyle(theme.headerInk.opacity(0.8))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .allowsTightening(true)
-                .layoutPriority(1)
+                .font(BrandTypeface.wordmark(14, weight: isActive ? .bold : .medium))
+                .foregroundStyle(theme.headerInk)
+                // Matches duncangough.com: one light offset, with no dark
+                // counter-shadow on these small navigation labels.
+                .shadow(color: .white, radius: 1, x: 0, y: 1)
         }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }

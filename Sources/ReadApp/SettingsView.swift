@@ -22,13 +22,14 @@ struct SettingsView: View {
                 Text("Settings")
                     .font(ReaderTheme.serif(20, weight: .semibold))
                     .foregroundStyle(theme.ink)
+                    .embossedText()
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
 
             Picker("", selection: $section) {
-                ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(Section.allCases) { Text($0.rawValue).embossedText().tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -53,9 +54,11 @@ struct SettingsView: View {
                 Text("Tracked Sources")
                     .font(ReaderTheme.sans(13, weight: .semibold))
                     .foregroundStyle(theme.ink)
+                    .embossedText()
                 Text("Paste a website URL or an RSS/Atom feed URL. Read will pull stories from either.")
                     .font(ReaderTheme.sans(12))
                     .foregroundStyle(theme.inkSecondary)
+                    .embossedText()
 
                 List {
                     ForEach(model.sources.sorted {
@@ -78,6 +81,7 @@ struct SettingsView: View {
                             HStack {
                                 Text(source.url)
                                     .lineLimit(1)
+                                    .embossedText()
                                 Spacer()
                                 Button {
                                     editingSourceID = source.id
@@ -187,10 +191,12 @@ private struct ThemeCard: View {
                 Text(candidate.title)
                     .font(ReaderTheme.sans(12, weight: .semibold))
                     .foregroundStyle(candidate.ink)
+                    .embossedText()
                     .lineLimit(1)
                 Text("Aa headline, and the body copy under it.")
                     .font(ReaderTheme.serif(11))
                     .foregroundStyle(candidate.inkSecondary)
+                    .embossedText()
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

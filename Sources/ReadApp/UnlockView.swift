@@ -27,8 +27,9 @@ struct UnlockView: View {
             // down at the foot of the same screen.
             VStack(spacing: 10) {
                 CandleMark(height: 54, opacity: 0.75)
-                Text("Read")
-                    .font(BrandTypeface.wordmark(22))
+                    Text("Read")
+                        .font(BrandTypeface.wordmark(22))
+                        .embossedText()
                     .foregroundStyle(theme.ink)
             }
 
@@ -59,8 +60,9 @@ struct UnlockView: View {
             }
 
             if let errorMessage {
-                Text(errorMessage)
-                    .font(ReaderTheme.sans(13))
+                    Text(errorMessage)
+                        .font(ReaderTheme.sans(13))
+                        .embossedText()
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 320)
@@ -75,6 +77,7 @@ struct UnlockView: View {
                         .frame(width: 80)
                 } else {
                     Text(isCreatingPassword ? "Create" : "Unlock").frame(width: 80)
+                        .embossedText()
                 }
             }
             .keyboardShortcut(.defaultAction)

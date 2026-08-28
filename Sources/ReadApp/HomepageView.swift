@@ -115,6 +115,7 @@ struct HomepageView: View {
                         Text(error)
                             .font(ReaderTheme.sans(13))
                             .foregroundStyle(.red)
+                            .embossedText()
                             .padding(.bottom, 16)
                     }
 
@@ -124,6 +125,7 @@ struct HomepageView: View {
                             Text(status)
                                 .font(ReaderTheme.sans(13))
                                 .foregroundStyle(theme.inkSecondary)
+                                .embossedText()
                         }
                         .padding(.bottom, 16)
                     }
@@ -151,6 +153,7 @@ struct HomepageView: View {
                                         Text(selectedAllSource?.url ?? "All sources")
                                             .font(ReaderTheme.serif(18, weight: .semibold))
                                             .foregroundStyle(theme.ink)
+                                            .embossedText()
                                             .textSelection(.enabled)
                                             .padding(.bottom, 16)
                                     }
@@ -159,12 +162,14 @@ struct HomepageView: View {
                                         Text("No stories yet — hit refresh to pull the latest from your tracked sources.")
                                             .font(ReaderTheme.sans(14))
                                             .foregroundStyle(theme.inkSecondary)
+                                            .embossedText()
                                     } else if filteredStories.isEmpty, model.feedMode == .feed {
                                         allClearState
                                     } else if filteredStories.isEmpty {
                                         Text("No stories from this source yet.")
                                             .font(ReaderTheme.sans(14))
                                             .foregroundStyle(theme.inkSecondary)
+                                            .embossedText()
                                     } else {
                                         if currentPage > 0 {
                                             paginationControls(proxy: scrollProxy)
@@ -466,6 +471,7 @@ struct HomepageView: View {
             Text("Page \(currentPage + 1) of \(pageCount)")
                 .font(ReaderTheme.sans(12, weight: .medium))
                 .foregroundStyle(theme.inkSecondary)
+                .embossedText()
 
             Spacer()
 
@@ -481,9 +487,11 @@ struct HomepageView: View {
             Text("Nothing tracked yet")
                 .font(ReaderTheme.serif(20, weight: .semibold))
                 .foregroundStyle(theme.ink)
+                .embossedText()
             Text("Add a few sites in Settings and Read will pull headlines from each one onto this page.")
                 .font(ReaderTheme.sans(14))
                 .foregroundStyle(theme.inkSecondary)
+                .embossedText()
             Button("Open Settings") {
                 model.isShowingSettings = true
             }
@@ -586,11 +594,13 @@ private struct StoryRow: View {
                     .font(ReaderTheme.sans(11, weight: .semibold))
                     .tracking(0.6)
                     .foregroundStyle(theme.inkSecondary)
+                    .embossedText()
 
                 Button(action: select) {
                     Text(story.title)
                         .font(ReaderTheme.serif(19, weight: .semibold))
                         .foregroundStyle(theme.ink)
+                        .embossedText()
                         .multilineTextAlignment(.leading)
                         .lineLimit(3)
                         .contentShape(Rectangle())
@@ -612,6 +622,7 @@ private struct StoryRow: View {
                     Text(excerpt)
                         .font(ReaderTheme.serif(15))
                         .foregroundStyle(theme.inkSecondary)
+                        .embossedText()
                         .multilineTextAlignment(.leading)
                         .lineLimit(12)
                         .lineSpacing(4)
@@ -621,6 +632,7 @@ private struct StoryRow: View {
                         Text("Loading…")
                             .font(ReaderTheme.sans(11, weight: .medium))
                             .foregroundStyle(theme.inkSecondary)
+                            .embossedText()
                     }
                     .padding(.top, 2)
                 }
@@ -674,6 +686,7 @@ private struct AllSourceSidebar: View {
             Text("Sources")
                 .font(ReaderTheme.serif(16, weight: .semibold))
                 .foregroundStyle(theme.ink)
+                .embossedText()
                 .padding(.bottom, 6)
 
             SourceFilterButton(title: "All sources", isSelected: selectedSourceID == nil) {
@@ -718,6 +731,7 @@ private struct SourceFilterButton: View {
             Text(title)
                 .font(ReaderTheme.sans(12, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? theme.ink : theme.inkSecondary)
+                .embossedText()
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -750,6 +764,7 @@ private struct FeedModeBar: View {
                     Text(title)
                         .font(ReaderTheme.sans(12, weight: .semibold))
                         .foregroundStyle(mode == option ? theme.ink : theme.inkSecondary)
+                        .embossedText()
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(mode == option ? theme.paperInset : Color.clear)
@@ -783,6 +798,7 @@ private struct PaginationButton: View {
                 }
             }
             .font(ReaderTheme.sans(12, weight: .medium))
+            .embossedText()
             .foregroundStyle(isDisabled ? theme.rule : (isHovering ? theme.inkSecondary : theme.ink))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

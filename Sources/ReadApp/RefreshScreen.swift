@@ -46,12 +46,14 @@ struct RefreshScreen: View {
 
     private var statusPanel: some View {
         VStack(spacing: 14) {
-            Text("Gathering your stories")
-                .font(ReaderTheme.serif(24, weight: .semibold))
+                Text("Gathering your stories")
+                    .font(ReaderTheme.serif(24, weight: .semibold))
+                    .embossedText()
                 .foregroundStyle(theme.ink)
 
-            Text(status ?? "Waking up the sources…")
-                .font(ReaderTheme.sans(13))
+                Text(status ?? "Waking up the sources…")
+                    .font(ReaderTheme.sans(13))
+                    .embossedText()
                 .foregroundStyle(theme.inkSecondary)
                 .animation(nil, value: status)
 

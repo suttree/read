@@ -22,10 +22,12 @@ struct PermalinkView: View {
                     .font(ReaderTheme.sans(11, weight: .semibold))
                     .tracking(0.6)
                     .foregroundStyle(theme.inkSecondary)
+                    .embossedText()
 
                 Text(article?.title ?? story.title)
                     .font(ReaderTheme.serif(30, weight: .bold))
                     .foregroundStyle(theme.ink)
+                    .embossedText()
 
                 if isLoadingArticle {
                     HStack(spacing: 8) {
@@ -33,6 +35,7 @@ struct PermalinkView: View {
                         Text("Fetching article…")
                             .font(ReaderTheme.sans(13))
                             .foregroundStyle(theme.inkSecondary)
+                            .embossedText()
                     }
                     .padding(.top, 12)
                 } else {
@@ -82,10 +85,12 @@ struct PermalinkView: View {
                             .foregroundStyle(theme.ink)
                             .lineSpacing(7)
                             .textSelection(.enabled)
+                            .embossedText()
                     } else {
                         Text("Couldn't load the full text for this story.")
                             .font(ReaderTheme.sans(13))
                             .foregroundStyle(theme.inkSecondary)
+                            .embossedText()
                     }
                 }
 
@@ -124,7 +129,7 @@ struct PermalinkView: View {
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(theme.headerPaint, for: .windowToolbar)
         .toolbar {
-            PermalinkBrandToolbarItem(title: article?.title ?? story.title) {
+            PermalinkBrandToolbarItem {
                 model.goHome()
             }
             ToolbarItem(placement: .automatic) {
