@@ -61,10 +61,8 @@ struct PermalinkView: View {
                                 if let image = phase.image {
                                     image
                                         .resizable()
-                                        .scaledToFill()
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 220)
-                                        .clipped()
+                                        .scaledToFit()
+                                        .frame(maxWidth: 660, maxHeight: 360, alignment: .leading)
                                         .saturation(0)
                                         .contrast(1.04)
                                         .overlay(theme.ink.opacity(0.08))
