@@ -30,6 +30,7 @@ struct CandleMark: View {
             Image(nsImage: artwork)
                 .renderingMode(.template)
                 .resizable()
+                .interpolation(.high)
                 .scaledToFit()
                 .frame(height: height)
                 .foregroundStyle((tint ?? theme.inkSecondary).opacity(opacity))

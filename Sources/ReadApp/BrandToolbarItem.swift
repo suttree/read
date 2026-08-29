@@ -95,11 +95,11 @@ private struct HomeCandleButton: View {
     var body: some View {
         Button(action: action) {
             CandleMark(
-                height: 36,
+                height: 44,
                 opacity: isHovering ? 0.46 : 0.78,
                 tint: theme.headerInk
             )
-            .frame(width: 42, height: 36)
+            .frame(width: 50, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
