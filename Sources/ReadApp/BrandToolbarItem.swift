@@ -73,6 +73,7 @@ private struct HeaderLink: View {
             Text(title)
                 .font(BrandTypeface.wordmark(17, weight: isActive || isHovering ? .bold : .medium))
                 .foregroundStyle(theme.headerInk.opacity(0.88))
+                .underline(isHovering && isEnabled)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
