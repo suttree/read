@@ -68,7 +68,7 @@ private struct BackPill: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "arrow.left")
+            Image(systemName: "chevron.left")
                 .font(BrandTypeface.appFont(15, weight: .medium))
                 .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
                 .frame(width: 34, height: 28)
@@ -92,11 +92,11 @@ private struct HomeCandleButton: View {
     var body: some View {
         Button(action: action) {
             CandleMark(
-                height: 28,
+                height: 36,
                 opacity: isHovering ? 0.46 : 0.78,
                 tint: theme.headerInk
             )
-            .frame(width: 34, height: 30)
+            .frame(width: 42, height: 36)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
