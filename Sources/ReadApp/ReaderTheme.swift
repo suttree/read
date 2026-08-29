@@ -470,10 +470,10 @@ enum AppIconTheming {
 
         // Keep the border inside the icon body so it reads as an inset keyline
         // instead of a second outer edge that macOS can clip away.
-        let borderInset = size * 0.024
+        let borderInset = size * 0.055
         let borderPath = ThemePatternRenderer.squircle(in: squircleRect.insetBy(dx: borderInset, dy: borderInset))
         NSColor.white.withAlphaComponent(0.86).setStroke()
-        borderPath.lineWidth = size * 0.018
+        borderPath.lineWidth = size * 0.012
         borderPath.stroke()
 
         if let artwork,
