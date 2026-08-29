@@ -9,6 +9,8 @@ import SwiftUI
 struct BrandToolbarItem: ToolbarContent {
     let goHome: () -> Void
 
+    @Environment(\.readerTheme) private var theme
+
     @ToolbarContentBuilder
     var body: some ToolbarContent {
         if #available(macOS 26.0, *) {
@@ -22,7 +24,7 @@ struct BrandToolbarItem: ToolbarContent {
         ToolbarItem(placement: .principal) {
             HStack(spacing: 14) {
                 HeaderLink(title: "< Back", isActive: false, isEnabled: false) {}
-                CandleMark(height: 26)
+                CandleMark(height: 26, opacity: 0.78, tint: theme.headerInk)
                 HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
@@ -33,6 +35,8 @@ struct BrandToolbarItem: ToolbarContent {
 /// as one toolbar item so the two labels read as a single navigation group.
 struct PermalinkBrandToolbarItem: ToolbarContent {
     let goHome: () -> Void
+
+    @Environment(\.readerTheme) private var theme
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -47,7 +51,7 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
         ToolbarItem(placement: .principal) {
             HStack(spacing: 14) {
                 HeaderLink(title: "< Back", isActive: true, action: goHome)
-                CandleMark(height: 26)
+                CandleMark(height: 26, opacity: 0.78, tint: theme.headerInk)
                 HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
@@ -73,8 +77,8 @@ private struct HeaderLink: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(BrandTypeface.wordmark(18, weight: isHovering ? .regular : (isActive ? .bold : .medium)))
-                .foregroundStyle(theme.headerInk.opacity(0.72))
+                .font(BrandTypeface.wordmark(18, weight: .regular))
+                .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)

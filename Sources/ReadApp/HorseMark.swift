@@ -10,6 +10,7 @@ import SwiftUI
 struct CandleMark: View {
     var height: CGFloat
     var opacity: Double = 1
+    var tint: Color?
 
     @Environment(\.readerTheme) private var theme
 
@@ -31,7 +32,7 @@ struct CandleMark: View {
                 .resizable()
                 .scaledToFit()
                 .frame(height: height)
-                .foregroundStyle(theme.inkSecondary.opacity(opacity))
+                .foregroundStyle((tint ?? theme.inkSecondary).opacity(opacity))
         }
     }
 }
