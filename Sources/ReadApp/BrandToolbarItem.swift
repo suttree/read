@@ -67,7 +67,10 @@ private struct BackPill: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            guard isEnabled else { return }
+            action()
+        } label: {
             Image(systemName: "chevron.left")
                 .font(BrandTypeface.appFont(15, weight: .medium))
                 .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
@@ -75,7 +78,7 @@ private struct BackPill: View {
         }
         .buttonStyle(.plain)
         .background(Capsule().fill(Color.white.opacity(0.82)))
-        .disabled(!isEnabled)
+        .allowsHitTesting(isEnabled)
         .onHover { hovering in
             isHovering = hovering
         }
