@@ -62,10 +62,10 @@ struct PermalinkView: View {
                                     image
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(maxWidth: 660, maxHeight: 360, alignment: .leading)
                                         .saturation(0)
                                         .contrast(1.04)
                                         .overlay(theme.ink.opacity(0.08))
+                                        .frame(maxWidth: 660, maxHeight: 360, alignment: .leading)
                                 } else if phase.error != nil {
                                     EmptyView()
                                 } else {
