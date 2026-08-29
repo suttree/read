@@ -102,6 +102,29 @@ struct PermalinkView: View {
                     .padding(.top, 12)
                 }
 
+                if previousStory != nil || nextStory != nil {
+                    HStack(alignment: .top, spacing: 16) {
+                        ArticleNavigationButton(
+                            title: previousStory.map { "← \($0.title)" } ?? "Previous",
+                            isEnabled: previousStory != nil,
+                            isLeading: true
+                        ) {
+                            model.showAdjacentStory(from: story, offset: -1)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        ArticleNavigationButton(
+                            title: nextStory.map { "\($0.title) →" } ?? "Next",
+                            isEnabled: nextStory != nil,
+                            isLeading: false
+                        ) {
+                            model.showAdjacentStory(from: story, offset: 1)
+                        }
+                    }
+                    .padding(.top, 24)
+                }
+
                 Color.clear
                     .frame(height: 1)
                     .id("bottom")
@@ -171,6 +194,14 @@ struct PermalinkView: View {
         }
     }
 
+    private var previousStory: Story? {
+        model.adjacentStory(to: story, offset: -1)
+    }
+
+    private var nextStory: Story? {
+        model.adjacentStory(to: story, offset: 1)
+    }
+
     /// j/k step to the next/previous story without returning to the list, x
     /// flips the bolt — the same key that rates the selected card on the feed,
     /// so rating is one key wherever you are — r toggles read/unread (opening
@@ -230,5 +261,28 @@ struct PermalinkView: View {
         isLoadingArticle = true
         article = await model.loadArticle(for: story)
         isLoadingArticle = false
+    }
+}
+
+private struct ArticleNavigationButton: View {
+    let title: String
+    let isEnabled: Bool
+    let isLeading: Bool
+    let action: () -> Void
+
+    @Environment(\.readerTheme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ReaderTheme.serif(13, weight: .medium))
+                .foregroundStyle(isEnabled ? theme.ink : theme.rule)
+                .multilineTextAlignment(isLeading ? .leading : .trailing)
+                .lineLimit(2)
+                .frame(maxWidth: 260, alignment: isLeading ? .leading : .trailing)
+                .embossedText()
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }

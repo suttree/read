@@ -2,9 +2,12 @@ import AppKit
 import SwiftUI
 
 struct EmbossedTextModifier: ViewModifier {
+    @Environment(\.readerTheme) private var theme
+
     func body(content: Content) -> some View {
         content
-            .shadow(color: .black.opacity(0.18), radius: 1, x: 0, y: 1)
+            .shadow(color: .white.opacity(0.7), radius: 0.5, x: 0, y: -1)
+            .shadow(color: theme.ink.opacity(0.3), radius: 0.6, x: 0, y: 1)
     }
 }
 
@@ -470,7 +473,7 @@ enum AppIconTheming {
         let borderInset = size * 0.024
         let borderPath = ThemePatternRenderer.squircle(in: squircleRect.insetBy(dx: borderInset, dy: borderInset))
         NSColor.white.withAlphaComponent(0.86).setStroke()
-        borderPath.lineWidth = size * 0.009
+        borderPath.lineWidth = size * 0.018
         borderPath.stroke()
 
         if let artwork,

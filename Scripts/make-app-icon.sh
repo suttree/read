@@ -26,7 +26,7 @@ magick -size 1200x1200 xc:'#26313a' "$WORK_DIR/mask.png" \
   -compose CopyOpacity -composite "$WORK_DIR/logo.png"
 
 magick "$WORK_DIR/base.png" "$WORK_DIR/dots.png" -compose over -composite \
-  -stroke '#ffffff' -strokewidth 10 -fill none \
+  -stroke '#ffffff' -strokewidth 20 -fill none \
   -draw 'roundrectangle 128,128 1072,1072 170,170' \
   "$WORK_DIR/logo.png" -compose over -composite \
   -strip "$OUTPUT"
