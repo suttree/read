@@ -19,9 +19,10 @@ struct BrandToolbarItem: ToolbarContent {
     }
 
     private var wordmark: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .principal) {
             HStack(spacing: 14) {
                 HeaderLink(title: "< Back", isActive: false, isEnabled: false) {}
+                CandleMark(height: 26)
                 HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
@@ -43,9 +44,10 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
     }
 
     private var content: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
+        ToolbarItem(placement: .principal) {
             HStack(spacing: 14) {
                 HeaderLink(title: "< Back", isActive: true, action: goHome)
+                CandleMark(height: 26)
                 HeaderLink(title: "Home", isActive: true, action: goHome)
             }
         }
@@ -71,9 +73,8 @@ private struct HeaderLink: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(BrandTypeface.wordmark(18, weight: isActive || isHovering ? .bold : .medium))
+                .font(BrandTypeface.wordmark(18, weight: isHovering ? .regular : (isActive ? .bold : .medium)))
                 .foregroundStyle(theme.headerInk.opacity(0.72))
-                .underline(isHovering && isEnabled)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
