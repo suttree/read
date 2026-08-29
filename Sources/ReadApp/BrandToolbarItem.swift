@@ -9,24 +9,22 @@ import SwiftUI
 struct BrandToolbarItem: ToolbarContent {
     let goHome: () -> Void
 
-    @Environment(\.readerTheme) private var theme
-
     @ToolbarContentBuilder
     var body: some ToolbarContent {
         if #available(macOS 26.0, *) {
-            wordmark.sharedBackgroundVisibility(.hidden)
+            content.sharedBackgroundVisibility(.hidden)
         } else {
-            wordmark
+            content
         }
     }
 
-    private var wordmark: some ToolbarContent {
+    @ToolbarContentBuilder
+    private var content: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            BackPill(isEnabled: false) {}
+        }
         ToolbarItem(placement: .principal) {
-            HStack(spacing: 14) {
-                HeaderLink(title: "< Back", isActive: false, isEnabled: false) {}
-                CandleMark(height: 26, opacity: 0.78, tint: theme.headerInk)
-                HeaderLink(title: "Home", isActive: true, action: goHome)
-            }
+            HomeCandleButton(action: goHome)
         }
     }
 }
@@ -35,8 +33,6 @@ struct BrandToolbarItem: ToolbarContent {
 /// as one toolbar item so the two labels read as a single navigation group.
 struct PermalinkBrandToolbarItem: ToolbarContent {
     let goHome: () -> Void
-
-    @Environment(\.readerTheme) private var theme
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -47,44 +43,64 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
         }
     }
 
+    @ToolbarContentBuilder
     private var content: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            BackPill(isEnabled: true, action: goHome)
+        }
         ToolbarItem(placement: .principal) {
-            HStack(spacing: 14) {
-                HeaderLink(title: "< Back", isActive: true, action: goHome)
-                CandleMark(height: 26, opacity: 0.78, tint: theme.headerInk)
-                HeaderLink(title: "Home", isActive: true, action: goHome)
-            }
+            HomeCandleButton(action: goHome)
         }
     }
 }
 
-private struct HeaderLink: View {
-    let title: String
-    let isActive: Bool
+private struct BackPill: View {
     let isEnabled: Bool
     let action: () -> Void
 
     @Environment(\.readerTheme) private var theme
     @State private var isHovering = false
 
-    init(title: String, isActive: Bool, isEnabled: Bool = true, action: @escaping () -> Void) {
-        self.title = title
-        self.isActive = isActive
+    init(isEnabled: Bool, action: @escaping () -> Void) {
         self.isEnabled = isEnabled
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(BrandTypeface.wordmark(18, weight: .regular))
+            Image(systemName: "arrow.left")
+                .font(BrandTypeface.appFont(15, weight: .medium))
                 .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
+                .frame(width: 34, height: 28)
         }
         .buttonStyle(.plain)
+        .background(Capsule().fill(Color.white.opacity(0.82)))
         .disabled(!isEnabled)
         .onHover { hovering in
-            guard isEnabled else { return }
             isHovering = hovering
         }
+        .help("Back")
+    }
+}
+
+private struct HomeCandleButton: View {
+    let action: () -> Void
+
+    @Environment(\.readerTheme) private var theme
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            CandleMark(
+                height: 28,
+                opacity: isHovering ? 0.46 : 0.78,
+                tint: theme.headerInk
+            )
+            .frame(width: 34, height: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+        .help("Home")
     }
 }
