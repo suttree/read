@@ -71,8 +71,8 @@ private struct HeaderLink: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(BrandTypeface.wordmark(17, weight: isActive || isHovering ? .bold : .medium))
-                .foregroundStyle(theme.headerInk.opacity(0.88))
+                .font(BrandTypeface.wordmark(18, weight: isActive || isHovering ? .bold : .medium))
+                .foregroundStyle(theme.headerInk.opacity(0.72))
                 .underline(isHovering && isEnabled)
         }
         .buttonStyle(.plain)

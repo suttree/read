@@ -27,7 +27,7 @@ struct PermalinkView: View {
                 Text(article?.title ?? story.title)
                     .font(ReaderTheme.serif(30, weight: .bold))
                     .foregroundStyle(theme.ink)
-                    .embossedText()
+                    .shadow(color: .white, radius: 1, x: 0, y: 1)
 
                 if isLoadingArticle {
                     HStack(spacing: 8) {
