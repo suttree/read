@@ -22,7 +22,6 @@ struct ReadApp: App {
                     model.isShowingSettings = true
                 }
                 .keyboardShortcut(",", modifiers: .command)
-                .disabled(!model.isUnlocked || model.isLockedByInactivity)
             }
 
             CommandGroup(after: .sidebar) {
@@ -44,29 +43,18 @@ struct ContentView: View {
     @ObservedObject var model: ReadAppModel
 
     var body: some View {
-        Group {
-            if model.isUnlocked, !model.isLockedByInactivity {
-                navigation
-                    .overlay {
-                        if model.isRefreshing, !model.hasSkippedRefreshScreen {
-                            RefreshScreen(
-                                status: model.refreshStatus,
-                                progress: model.refreshProgress,
-                                skip: { model.hasSkippedRefreshScreen = true }
-                            )
-                            .transition(.opacity)
-                        }
-                    }
-                    .animation(.easeInOut(duration: 0.35), value: model.isRefreshing)
-            } else {
-                UnlockView(
-                    isCreatingPassword: !model.hasStoredPassword,
-                    isUnlocking: model.isUnlocking,
-                    errorMessage: model.passwordErrorMessage,
-                    unlock: model.isLockedByInactivity ? model.unlockFromInactivityLock : model.unlock
-                )
+        navigation
+            .overlay {
+                if model.isRefreshing, !model.hasSkippedRefreshScreen {
+                    RefreshScreen(
+                        status: model.refreshStatus,
+                        progress: model.refreshProgress,
+                        skip: { model.hasSkippedRefreshScreen = true }
+                    )
+                    .transition(.opacity)
+                }
             }
-        }
+            .animation(.easeInOut(duration: 0.35), value: model.isRefreshing)
         .environment(\.readerTheme, model.theme)
     }
 
