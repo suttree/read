@@ -752,7 +752,7 @@ private struct FeedModeBar: View {
     @Environment(\.readerTheme) private var theme
 
     private let options: [(ReadAppModel.FeedMode, String)] = [
-        (.feed, "Feed"), (.all, "All")
+        (.feed, "Highlights"), (.all, "All")
     ]
 
     var body: some View {
@@ -771,6 +771,8 @@ private struct FeedModeBar: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(title)
+                .help(title)
             }
         }
     }
