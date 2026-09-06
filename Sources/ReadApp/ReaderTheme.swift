@@ -420,8 +420,8 @@ private struct PolkaDotTexture: View {
     }
 }
 
-/// Generates and applies a themed app icon: a solid midpoint colour with the
-/// winning candle artwork embossed over the top.
+/// Generates and applies a themed app icon: the winning candle artwork on a
+/// transparent canvas.
 /// Persisted across relaunches since an icon override is otherwise just an
 /// in-memory NSApplication property macOS has no reason to remember on its
 /// own.
@@ -457,32 +457,13 @@ enum AppIconTheming {
         image.lockFocus()
         defer { image.unlockFocus() }
 
-        // Apple's macOS icon grid leaves the rounded-square body at roughly
-        // 80% of the full canvas — inset any less and Read sits visibly
-        // larger than every other icon in the Dock.
-        let inset = size * 0.098
-        let squircleRect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
-        // A superellipse rather than a rounded rect: macOS icon corners are
-        // continuous curves, and circular ones look wrong in the Dock.
-        let path = ThemePatternRenderer.squircle(in: squircleRect)
-
-        ThemePatternRenderer.fill(theme.iconStyle, in: path, stripeWidth: nil, starSeed: theme.starSeed)
-
-        // Keep the border inside the icon body so it reads as an inset keyline
-        // instead of a second outer edge that macOS can clip away.
-        let borderInset = size * 0.055
-        let borderPath = ThemePatternRenderer.squircle(in: squircleRect.insetBy(dx: borderInset, dy: borderInset))
-        NSColor.white.withAlphaComponent(0.86).setStroke()
-        borderPath.lineWidth = size * 0.012
-        borderPath.stroke()
-
         if let artwork,
-           // Sized below the squircle edge so the candle stays clear of the
-           // corners while reading as the main mark.
-           let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 0.92, in: squircleRect.size) {
+           // Fill the transparent canvas while retaining the source artwork's
+           // own clear margin around the candle.
+           let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 1.0, in: NSSize(width: size, height: size)) {
             let drawRect = NSRect(
-                x: squircleRect.midX - artworkImage.size.width / 2,
-                y: squircleRect.midY - artworkImage.size.height / 2,
+                x: size / 2 - artworkImage.size.width / 2,
+                y: size / 2 - artworkImage.size.height / 2,
                 width: artworkImage.size.width,
                 height: artworkImage.size.height
             )
