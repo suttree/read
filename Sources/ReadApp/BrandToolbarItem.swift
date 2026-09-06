@@ -32,6 +32,7 @@ struct BrandToolbarItem: ToolbarContent {
 /// The permalink page's header: the active back link followed by Home. Built
 /// as one toolbar item so the two labels read as a single navigation group.
 struct PermalinkBrandToolbarItem: ToolbarContent {
+    let goBack: () -> Void
     let goHome: () -> Void
 
     @ToolbarContentBuilder
@@ -46,7 +47,7 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
     @ToolbarContentBuilder
     private var content: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            BackPill(isEnabled: true, action: goHome)
+            BackPill(isEnabled: true, action: goBack)
         }
         ToolbarItem(placement: .principal) {
             HomeCandleButton(action: goHome)
@@ -95,11 +96,11 @@ private struct HomeCandleButton: View {
     var body: some View {
         Button(action: action) {
             CandleMark(
-                height: 44,
+                height: 40,
                 opacity: isHovering ? 0.46 : 0.78,
                 tint: theme.headerInk
             )
-            .frame(width: 50, height: 44)
+            .frame(width: 46, height: 40)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

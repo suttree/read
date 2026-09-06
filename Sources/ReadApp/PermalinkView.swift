@@ -150,9 +150,10 @@ struct PermalinkView: View {
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(theme.headerPaint, for: .windowToolbar)
         .toolbar {
-            PermalinkBrandToolbarItem {
-                model.goHome()
-            }
+            PermalinkBrandToolbarItem(
+                goBack: { model.goBack() },
+                goHome: { model.goHome() }
+            )
             ToolbarItem(placement: .automatic) {
                 if model.isRefreshing {
                     ProgressView()
