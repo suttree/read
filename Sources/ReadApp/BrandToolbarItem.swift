@@ -72,14 +72,18 @@ private struct BackPill: View {
             guard isEnabled else { return }
             action()
         } label: {
-            Image(systemName: "chevron.left")
-                .font(BrandTypeface.appFont(15, weight: .medium))
-                .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
-                .frame(width: 52, height: 36)
+            ZStack {
+                Color.clear
+                Image(systemName: "chevron.left")
+                    .font(BrandTypeface.appFont(15, weight: .medium))
+                    .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
+            }
+            .frame(width: 68, height: 44)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .contentShape(Capsule())
         .background(Capsule().fill(Color.white.opacity(0.82)))
+        .contentShape(Capsule())
         .allowsHitTesting(isEnabled)
         .onHover { hovering in
             isHovering = hovering
