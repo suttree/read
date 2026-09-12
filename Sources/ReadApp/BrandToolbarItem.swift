@@ -75,9 +75,10 @@ private struct BackPill: View {
             Image(systemName: "chevron.left")
                 .font(BrandTypeface.appFont(15, weight: .medium))
                 .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
-                .frame(width: 34, height: 28)
+                .frame(width: 52, height: 36)
         }
         .buttonStyle(.plain)
+        .contentShape(Capsule())
         .background(Capsule().fill(Color.white.opacity(0.82)))
         .allowsHitTesting(isEnabled)
         .onHover { hovering in
