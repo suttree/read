@@ -380,30 +380,6 @@ final class ReadAppModel: ObservableObject {
         try? voteStore.saveVotes(voteHistory)
         ranker = NaiveBayesRanker(votes: voteHistory)
         recomputeRanking()
-        updatePermalinkOrder(afterRatingChangeFor: story)
-    }
-
-    /// Rating can immediately reorder or remove a story from Feed while its
-    /// article is open. Keep that article as the navigation anchor, but use
-    /// the newly ranked Feed order for the stories around it.
-    private func updatePermalinkOrder(afterRatingChangeFor story: Story) {
-        let normalizedOrder = normalizedPermalinkOrder(anchoredAt: story)
-        guard let oldIndex = normalizedOrder.firstIndex(of: story.id) else {
-            return
-        }
-
-        var updated = visibleStories(from: stories).filter { $0.id != story.id }
-        let insertionIndex = min(oldIndex, updated.count)
-        updated.insert(story, at: insertionIndex)
-        permalinkStoryOrder = updated.map(\.id)
-    }
-
-    /// Remove stories that a rating change has taken out of the active list,
-    /// but retain the open story as an anchor until the next/previous action
-    /// moves away from it.
-    private func normalizedPermalinkOrder(anchoredAt story: Story) -> [String] {
-        let visibleIDs = Set(visibleStories(from: stories).map(\.id))
-        return permalinkStoryOrder.filter { $0 == story.id || visibleIDs.contains($0) }
     }
 
     /// Predicted-interest position per story, which the Feed tab sorts by —
@@ -813,8 +789,7 @@ final class ReadAppModel: ObservableObject {
             ordered = visibleStories(from: stories)
         } else {
             let storiesByID = Dictionary(uniqueKeysWithValues: stories.map { ($0.id, $0) })
-            let normalizedIDs = normalizedPermalinkOrder(anchoredAt: story)
-            ordered = normalizedIDs.compactMap { storiesByID[$0] }
+            ordered = permalinkStoryOrder.compactMap { storiesByID[$0] }
         }
         guard let idx = ordered.firstIndex(where: { $0.id == story.id }) else {
             return nil
@@ -830,9 +805,6 @@ final class ReadAppModel: ObservableObject {
     /// — j/k browsing through stories one at a time shouldn't build up a
     /// back-stack of every story passed through along the way.
     func showAdjacentStory(from story: Story, offset: Int) {
-        if !permalinkStoryOrder.isEmpty {
-            permalinkStoryOrder = normalizedPermalinkOrder(anchoredAt: story)
-        }
         guard let next = adjacentStory(to: story, offset: offset) else {
             return
         }
