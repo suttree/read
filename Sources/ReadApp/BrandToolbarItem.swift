@@ -78,7 +78,7 @@ private struct BackPill: View {
                     .font(BrandTypeface.appFont(15, weight: .medium))
                     .foregroundStyle(theme.headerInk.opacity(isHovering ? 0.46 : 0.78))
             }
-            .frame(width: 68, height: 44)
+            .frame(width: 54, height: 36)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
