@@ -55,31 +55,8 @@ struct PermalinkView: View {
                     }
 
                     if let article {
-                        if let imageURL = article.imageURL ?? story.imageURL,
-                           let url = URL(string: imageURL) {
-                            AsyncImage(url: url) { phase in
-                                if let image = phase.image {
-                                    image
-                                        .resizable()
-                                        .scaledToFit()
-                                        .saturation(0)
-                                        .contrast(1.04)
-                                        .overlay(theme.ink.opacity(0.08))
-                                        .frame(maxWidth: 660, maxHeight: 360, alignment: .leading)
-                                } else if phase.error != nil {
-                                    EmptyView()
-                                } else {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 120)
-                                }
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                            .padding(.vertical, 4)
-                        }
-
                         Text(article.bodyText)
-                        .font(ReaderTheme.serif(17))
+                            .font(ReaderTheme.serif(17))
                             .foregroundStyle(theme.ink)
                             .lineSpacing(7)
                             .textSelection(.enabled)
@@ -130,6 +107,38 @@ struct PermalinkView: View {
             .padding(32)
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
+            .background(alignment: .top) {
+                if let imageURL = article?.imageURL ?? story.imageURL,
+                   let url = URL(string: imageURL) {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .saturation(0)
+                                .contrast(1.04)
+                                .opacity(0.18)
+                                .mask(
+                                    LinearGradient(
+                                        stops: [
+                                            .init(color: .black, location: 0),
+                                            .init(color: .black.opacity(0.82), location: 0.25),
+                                            .init(color: .black.opacity(0.42), location: 0.5),
+                                            .init(color: .clear, location: 0.74),
+                                            .init(color: .clear, location: 1)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 420)
+                                .clipped()
+                        }
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
             .focusable()
             .focusEffectDisabled()
             .focused($isFocused)
