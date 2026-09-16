@@ -6,6 +6,8 @@ APP_DIR="$ROOT_DIR/.build/Read.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+ICONSET_DIR="$ROOT_DIR/.build/Read.iconset"
+ASSET_BUILD_DIR="$ROOT_DIR/.build/AppIcon.xcassets"
 ICON_SOURCE="$ROOT_DIR/Assets/noun-candle-4420273.png"
 
 "$ROOT_DIR/Scripts/make-app-icon.sh"
@@ -25,16 +27,31 @@ cp "$ROOT_DIR/.build/debug/ReadApp" "$MACOS_DIR/Read"
 chmod +x "$MACOS_DIR/Read"
 
 # iconutil rejects otherwise valid iconsets on newer macOS toolchains. Compile
-# the asset catalog directly instead, which also preserves the transparent
-# candle artwork as a native macOS app icon.
-cp "$ICON_SOURCE" "$ROOT_DIR/Assets/AppIcon.xcassets/AppIcon.appiconset/AppIcon.png"
+# the generated icon renditions through Apple's asset-catalog compiler instead.
+rm -rf "$ICONSET_DIR" "$ASSET_BUILD_DIR"
+mkdir -p "$ICONSET_DIR"
+for size in 16 32 128 256 512; do
+  icon_file="$ICONSET_DIR/icon_${size}x${size}.png"
+  sips -z "$size" "$size" "$ICON_SOURCE" --out "$icon_file" >/dev/null
+  normalized_file="${icon_file%.png}.rgba.png"
+  magick "$icon_file" -colorspace sRGB -alpha on -define png:color-type=6 "$normalized_file"
+  mv "$normalized_file" "$icon_file"
+  double_size=$((size * 2))
+  icon_file="$ICONSET_DIR/icon_${size}x${size}@2x.png"
+  sips -z "$double_size" "$double_size" "$ICON_SOURCE" --out "$icon_file" >/dev/null
+  normalized_file="${icon_file%.png}.rgba.png"
+  magick "$icon_file" -colorspace sRGB -alpha on -define png:color-type=6 "$normalized_file"
+  mv "$normalized_file" "$icon_file"
+done
+cp -R "$ROOT_DIR/Assets/AppIcon.xcassets" "$ASSET_BUILD_DIR"
+cp "$ICONSET_DIR"/* "$ASSET_BUILD_DIR/AppIcon.appiconset/"
 "$DEVELOPER_DIR/usr/bin/actool" \
   --compile "$RESOURCES_DIR" \
   --platform macosx \
   --minimum-deployment-target 14.0 \
   --app-icon AppIcon \
   --output-partial-info-plist "$CONTENTS_DIR/AssetInfo.plist" \
-  "$ROOT_DIR/Assets/AppIcon.xcassets" >/dev/null
+  "$ASSET_BUILD_DIR" >/dev/null
 
 RESOURCE_BUNDLE="$ROOT_DIR/.build/debug/Read_ReadApp.bundle"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
