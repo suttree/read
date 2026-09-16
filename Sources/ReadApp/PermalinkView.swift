@@ -191,14 +191,27 @@ struct PermalinkView: View {
             SettingsView(model: model)
         }
         .onAppear {
-            isFocused = true
+            restoreKeyboardFocus()
             // Opening a story is what takes it off the Feed queue — the
             // permalink is the one place in the app that's unambiguously "you
             // read this."
             model.markRead(story)
         }
+        .onChange(of: story.id) { _, _ in
+            restoreKeyboardFocus()
+        }
         .task {
             await loadArticle()
+        }
+    }
+
+    private func restoreKeyboardFocus() {
+        isFocused = true
+        // j/k replaces the route in place. Defer the second request until the
+        // replacement view has been mounted, otherwise SwiftUI can apply it
+        // to the outgoing reader and leave the new one unfocused.
+        DispatchQueue.main.async {
+            isFocused = true
         }
     }
 
