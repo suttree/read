@@ -153,6 +153,9 @@ final class ArticleFetcher {
 
         let webView = Self.makeHeadlessWebView()
         await load(webView, url: url)
+        let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let extractionLimit = (host == "pinboard.in" || host == "www.pinboard.in")
+            ? max(limit, 30) : limit
 
         let script = """
         (function() {
@@ -270,10 +273,31 @@ final class ArticleFetcher {
             var seenURL = {};
             var out = [];
 
+            // Pinboard's popular page is a deliberately sparse list: each
+            // bookmark is a `.bookmark_title` anchor inside a `.bookmark`
+            // div, and valid titles can be as short as a single word. Handle
+            // that structure before the general aggregator heuristics, whose
+            // word-count and prose-link filters would otherwise discard real
+            // bookmarks such as "Bend" and "Snapdrop".
+            var host = location.hostname.toLowerCase();
+            if (host === 'pinboard.in' || host === 'www.pinboard.in') {
+                var pinboardLinks = queryAllDeep('.bookmark a.bookmark_title[href]');
+                for (var pb = 0; pb < pinboardLinks.length && out.length < \(extractionLimit); pb++) {
+                    var pinboardLink = pinboardLinks[pb];
+                    var pinboardTitle = pinboardLink.innerText.trim().replace(/\\s+/g, ' ');
+                    var pinboardHref = pinboardLink.href;
+                    if (pinboardTitle.length < 2 || pinboardTitle.length > 160) continue;
+                    if (isJunkTitle(pinboardTitle) || isJunkLink(pinboardHref) || seenURL[pinboardHref]) continue;
+                    seen[pinboardTitle] = true;
+                    seenURL[pinboardHref] = true;
+                    out.push({ title: pinboardTitle, url: pinboardHref, image: findImage(pinboardLink) });
+                }
+            }
+
             // Tier 1: proper headline markup (news homepages with real
             // h1/h2/h3 elements per story).
             var headings = queryAllDeep('h1, h2, h3');
-            for (var i = 0; i < headings.length && out.length < \(limit); i++) {
+            for (var i = 0; i < headings.length && out.length < \(extractionLimit); i++) {
                 var h = headings[i];
                 if (isBoilerplate(h)) continue;
                 var text = titleOf(h);
@@ -306,7 +330,7 @@ final class ArticleFetcher {
             // basically nothing, since it's a much cruder heuristic.
             if (out.length < 3) {
                 var anchors = queryAllDeep('a[href]');
-                for (var j = 0; j < anchors.length && out.length < \(limit); j++) {
+                for (var j = 0; j < anchors.length && out.length < \(extractionLimit); j++) {
                     var a = anchors[j];
                     if (isBoilerplate(a)) continue;
                     var href = a.getAttribute('href') || '';
@@ -345,7 +369,7 @@ final class ArticleFetcher {
             // links do not turn into stories.
             if (out.length < 3) {
                 var titleLinks = queryAllDeep('.title a[href], [class*="entry-title" i] a[href], [class*="post-title" i] a[href]');
-                for (var k = 0; k < titleLinks.length && out.length < \(limit); k++) {
+                for (var k = 0; k < titleLinks.length && out.length < \(extractionLimit); k++) {
                     var titleLink = titleLinks[k];
                     if (isBoilerplate(titleLink)) continue;
                     var titleHref = titleLink.getAttribute('href') || '';
@@ -366,7 +390,7 @@ final class ArticleFetcher {
             var host = location.hostname.toLowerCase();
             if (host === 'www.reddit.com' || host === 'reddit.com') {
                 var redditPosts = queryAllDeep('shreddit-post');
-                for (var r = 0; r < redditPosts.length && out.length < \(limit); r++) {
+                for (var r = 0; r < redditPosts.length && out.length < \(extractionLimit); r++) {
                     var post = redditPosts[r];
                     var redditTitle = (post.getAttribute('post-title') || '').trim();
                     var redditHref = post.getAttribute('content-href') || '';
@@ -381,7 +405,7 @@ final class ArticleFetcher {
                 }
             } else if (host === 'www.patreon.com' || host === 'patreon.com') {
                 var patreonLinks = queryAllDeep('a[href*="/posts/"]');
-                for (var p = 0; p < patreonLinks.length && out.length < \(limit); p++) {
+                for (var p = 0; p < patreonLinks.length && out.length < \(extractionLimit); p++) {
                     var patreonLink = patreonLinks[p];
                     var patreonHref = patreonLink.href;
                     var patreonTitle = (patreonLink.getAttribute('aria-label') || patreonLink.getAttribute('title') || patreonLink.innerText || '').trim().replace(/\\s+/g, ' ');
@@ -393,7 +417,7 @@ final class ArticleFetcher {
                 }
             } else if (host === 'technorati.com' || host === 'www.technorati.com') {
                 var technoratiLinks = queryAllDeep('[class*="card" i] a[href], [class*="story" i] a[href], [class*="headline" i] a[href]');
-                for (var t = 0; t < technoratiLinks.length && out.length < \(limit); t++) {
+                for (var t = 0; t < technoratiLinks.length && out.length < \(extractionLimit); t++) {
                     var technoratiLink = technoratiLinks[t];
                     var technoratiTitle = (technoratiLink.getAttribute('aria-label') || technoratiLink.getAttribute('title') || technoratiLink.innerText || '').trim().replace(/\\s+/g, ' ');
                     if (technoratiTitle.length < 8 || technoratiTitle.length > 160) continue;
@@ -404,7 +428,7 @@ final class ArticleFetcher {
                 }
             } else if (host === 'www.404media.co' || host === '404media.co') {
                 var fourOhFourLinks = queryAllDeep('.post-card__title a[href]');
-                for (var f = 0; f < fourOhFourLinks.length && out.length < \(limit); f++) {
+                for (var f = 0; f < fourOhFourLinks.length && out.length < \(extractionLimit); f++) {
                     var fourOhFourLink = fourOhFourLinks[f];
                     var fourOhFourTitle = (fourOhFourLink.getAttribute('aria-label') || fourOhFourLink.getAttribute('title') || fourOhFourLink.innerText || '').trim().replace(/\\s+/g, ' ');
                     if (fourOhFourTitle.length < 8 || fourOhFourTitle.length > 160) continue;
@@ -415,7 +439,7 @@ final class ArticleFetcher {
                 }
             } else if (host === 'www.bbc.com' || host === 'bbc.com') {
                 var bbcLinks = queryAllDeep('[data-testid="card-headline"] a[href], [data-testid="card-headline"]');
-                for (var b = 0; b < bbcLinks.length && out.length < \(limit); b++) {
+                for (var b = 0; b < bbcLinks.length && out.length < \(extractionLimit); b++) {
                     var bbcHeading = bbcLinks[b];
                     var bbcFound = bbcHeading.matches('a[href]') ? { link: bbcHeading, container: bbcHeading } : findLink(bbcHeading);
                     if (!bbcFound) continue;
@@ -428,7 +452,7 @@ final class ArticleFetcher {
                 }
             } else if (host === 'cutcher.co.uk' || host === 'www.cutcher.co.uk') {
                 var cutcherLinks = queryAllDeep('article.linklog header h2 a[href]');
-                for (var c = 0; c < cutcherLinks.length && out.length < \(limit); c++) {
+                for (var c = 0; c < cutcherLinks.length && out.length < \(extractionLimit); c++) {
                     var cutcherLink = cutcherLinks[c];
                     var cutcherTitle = cutcherLink.innerText.trim().replace(/\\s+/g, ' ');
                     if (cutcherTitle.length < 8 || cutcherTitle.length > 160) continue;
