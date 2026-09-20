@@ -663,15 +663,32 @@ final class ArticleFetcher {
                 return promoMarkers.some(function(marker) { return lower.indexOf(marker) !== -1; });
             }
 
-            function paragraphsIn(roots, trusted) {
+            function blocksIn(roots, trusted) {
                 var found = [];
                 roots.forEach(function(root) {
-                    Array.prototype.push.apply(found, Array.from(root.querySelectorAll('p')));
+                    Array.prototype.push.apply(found, Array.from(root.querySelectorAll('p, figure, img')));
                 });
                 return found
-                    .filter(function(p) { return !isConsentContainer(p) && (trusted || !isChrome(p)); })
-                    .map(function(p) { return p.innerText.trim(); })
-                    .filter(function(t) { return t.length > 40 && !isConsentText(t); });
+                    .filter(function(el) { return !isConsentContainer(el) && (trusted || !isChrome(el)); })
+                    .map(function(el) {
+                        if (el.tagName.toLowerCase() === 'p') {
+                            var text = el.innerText.trim();
+                            return text.length > 40 && !isConsentText(text)
+                                ? { type: 'paragraph', value: text }
+                                : null;
+                        }
+                        var image = el.tagName.toLowerCase() === 'img' ? el : el.querySelector('img');
+                        // A figure contributes its image once; ignore the img
+                        // child when the selector also visits it separately.
+                        if (el.tagName.toLowerCase() === 'img' && el.closest('figure')) return null;
+                        var source = image && (image.currentSrc || image.src || image.getAttribute('data-src'));
+                        if (!source || source.indexOf('data:') === 0) return null;
+                        var width = image.naturalWidth || parseInt(image.getAttribute('width') || '0', 10);
+                        var height = image.naturalHeight || parseInt(image.getAttribute('height') || '0', 10);
+                        if (width && height && width < 120 && height < 120) return null;
+                        return { type: 'image', value: source };
+                    })
+                    .filter(function(block) { return block !== null; });
             }
 
             // The narrowest container that actually holds the story. This used
@@ -715,30 +732,36 @@ final class ArticleFetcher {
             if (main) roots.push({ els: [main], trusted: false });
             roots.push({ els: [document.body], trusted: false });
 
-            var paragraphs = [];
+            var blocks = [];
             for (var r = 0; r < roots.length; r++) {
-                var candidate = paragraphsIn(roots[r].els, roots[r].trusted);
-                var total = candidate.reduce(function(sum, t) { return sum + t.length; }, 0);
+                var candidate = blocksIn(roots[r].els, roots[r].trusted);
+                var total = candidate.reduce(function(sum, block) {
+                    return sum + (block.type === 'paragraph' ? block.value.length : 0);
+                }, 0);
                 if (total >= 400 || (r === roots.length - 1 && candidate.length > 0)) {
-                    paragraphs = candidate;
+                    blocks = candidate;
                     break;
                 }
             }
 
             var seen = {};
-            var uniqueParagraphs = paragraphs.filter(function(t) {
-                if (seen[t]) return false;
-                seen[t] = true;
+            var uniqueBlocks = blocks.filter(function(block) {
+                var key = block.type + ':' + block.value;
+                if (seen[key]) return false;
+                seen[key] = true;
                 return true;
             });
 
             // Everything from the first promo paragraph on is site furniture.
-            for (var i = 0; i < uniqueParagraphs.length; i++) {
-                if (isPromo(uniqueParagraphs[i])) {
-                    uniqueParagraphs = uniqueParagraphs.slice(0, i);
+            for (var i = 0; i < uniqueBlocks.length; i++) {
+                if (uniqueBlocks[i].type === 'paragraph' && isPromo(uniqueBlocks[i].value)) {
+                    uniqueBlocks = uniqueBlocks.slice(0, i);
                     break;
                 }
             }
+            var bodyParagraphs = uniqueBlocks
+                .filter(function(block) { return block.type === 'paragraph'; })
+                .map(function(block) { return block.value; });
             var ogImage = document.querySelector('meta[property="og:image"]');
 
             // Whatever the page itself claims for a publish time, checked in
@@ -779,7 +802,8 @@ final class ArticleFetcher {
 
             return {
                 title: titleText,
-                body: uniqueParagraphs.join('\\n\\n'),
+                body: bodyParagraphs.join('\\n\\n'),
+                blocks: uniqueBlocks,
                 image: ogImage ? ogImage.getAttribute('content') : null,
                 publishedAt: extractPublishedAt()
             };
@@ -791,13 +815,23 @@ final class ArticleFetcher {
               !body.isEmpty else {
             return nil
         }
+        let blocks = (row["blocks"] as? [[String: Any]])?.compactMap { block -> ArticleBlock? in
+            guard let type = block["type"] as? String,
+                  let value = block["value"] as? String else { return nil }
+            switch type {
+            case "paragraph": return .paragraph(value)
+            case "image": return .image(value)
+            default: return nil
+            }
+        }
         let publishedAt = (row["publishedAt"] as? String).flatMap(Self.parsePublishedAt)
         return Article(
             title: title,
             bodyText: body,
             imageURL: row["image"] as? String,
             sourceURL: url.absoluteString,
-            publishedAt: publishedAt
+            publishedAt: publishedAt,
+            blocks: blocks
         )
     }
 

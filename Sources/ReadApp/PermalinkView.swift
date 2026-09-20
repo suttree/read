@@ -55,12 +55,21 @@ struct PermalinkView: View {
                     }
 
                     if let article {
-                        Text(article.bodyText)
-                            .font(ReaderTheme.serif(17))
-                            .foregroundStyle(theme.ink)
-                            .lineSpacing(7)
-                            .textSelection(.enabled)
-                            .embossedText()
+                        VStack(alignment: .leading, spacing: 18) {
+                            ForEach(Array(article.blocks.enumerated()), id: \.offset) { _, block in
+                                switch block {
+                                case .paragraph(let text):
+                                    Text(text)
+                                        .font(ReaderTheme.serif(17))
+                                        .foregroundStyle(theme.ink)
+                                        .lineSpacing(7)
+                                        .textSelection(.enabled)
+                                        .embossedText()
+                                case .image(let imageURL):
+                                    ArticleInlineImage(urlString: imageURL)
+                                }
+                            }
+                        }
                     } else {
                         Text("Couldn't load the full text for this story.")
                             .font(ReaderTheme.sans(13))
@@ -262,6 +271,34 @@ struct PermalinkView: View {
         isLoadingArticle = true
         article = await model.loadArticle(for: story)
         isLoadingArticle = false
+    }
+}
+
+private struct ArticleInlineImage: View {
+    let urlString: String
+
+    var body: some View {
+        if let url = URL(string: urlString) {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .saturation(0)
+                        .contrast(1.04)
+                        .frame(maxWidth: .infinity)
+                        .frame(maxHeight: 520)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else if phase.error != nil {
+                    EmptyView()
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                }
+            }
+            .accessibilityLabel("Article image")
+        }
     }
 }
 
