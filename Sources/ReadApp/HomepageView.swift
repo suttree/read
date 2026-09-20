@@ -263,33 +263,12 @@ struct HomepageView: View {
             }
         }
         .toolbar {
-            BrandToolbarItem { model.goHome() }
-            ToolbarItem(placement: .automatic) {
-                if model.isRefreshing {
-                    // Sized to the refresh button it stands in for, so the
-                    // toolbar doesn't close up around it and leave the spinner
-                    // crowding the gear next to it.
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 24, height: 20)
-                } else {
-                    Button {
-                        Task { await model.refresh() }
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .foregroundStyle(theme.headerInk)
-                    .disabled(model.sources.isEmpty)
-                }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .foregroundStyle(theme.headerInk)
-            }
+            BrandToolbarItem(
+                goHome: { model.goHome() },
+                isRefreshing: model.isRefreshing,
+                refresh: { Task { await model.refresh() } },
+                settings: { model.isShowingSettings = true }
+            )
         }
         .sheet(isPresented: $model.isShowingSettings) {
             SettingsView(model: model)

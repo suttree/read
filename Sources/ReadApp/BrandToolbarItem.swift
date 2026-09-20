@@ -8,6 +8,9 @@ import SwiftUI
 /// header tint.
 struct BrandToolbarItem: ToolbarContent {
     let goHome: () -> Void
+    let isRefreshing: Bool
+    let refresh: () -> Void
+    let settings: () -> Void
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -24,7 +27,7 @@ struct BrandToolbarItem: ToolbarContent {
             BackPill(isEnabled: false) {}
         }
         ToolbarItem(placement: .principal) {
-            HomeCandleButton(action: goHome)
+            HeaderRow(goHome: goHome, isRefreshing: isRefreshing, refresh: refresh, settings: settings)
         }
     }
 }
@@ -34,6 +37,9 @@ struct BrandToolbarItem: ToolbarContent {
 struct PermalinkBrandToolbarItem: ToolbarContent {
     let goBack: () -> Void
     let goHome: () -> Void
+    let isRefreshing: Bool
+    let refresh: () -> Void
+    let settings: () -> Void
 
     @ToolbarContentBuilder
     var body: some ToolbarContent {
@@ -50,7 +56,7 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
             BackPill(isEnabled: true, action: goBack)
         }
         ToolbarItem(placement: .principal) {
-            HomeCandleButton(action: goHome)
+            HeaderRow(goHome: goHome, isRefreshing: isRefreshing, refresh: refresh, settings: settings)
         }
     }
 }
@@ -111,5 +117,37 @@ private struct HomeCandleButton: View {
         .buttonStyle(.plain)
         .onHover { hovering in isHovering = hovering }
         .help("Home")
+    }
+}
+
+private struct HeaderRow: View {
+    let goHome: () -> Void
+    let isRefreshing: Bool
+    let refresh: () -> Void
+    let settings: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            HomeCandleButton(action: goHome)
+            Spacer(minLength: 0)
+            if isRefreshing {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 24, height: 20)
+            } else {
+                Button(action: refresh) {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Refresh")
+            }
+            Button(action: settings) {
+                Label("Settings", systemImage: "gearshape")
+            }
+            .buttonStyle(.plain)
+            .help("Settings")
+        }
+        .frame(minWidth: 700, maxWidth: 1200)
     }
 }

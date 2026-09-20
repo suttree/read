@@ -17,7 +17,12 @@ struct CandleMark: View {
     /// Loaded once so decoding it per frame in the
     /// refresh screen's animation loop would be wasteful.
     static let artwork: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png"),
+        // SwiftPM copies the `Resources` directory as a resource directory
+        // inside the module bundle.  Keep the direct lookup as a fallback for
+        // Xcode/archive layouts, but explicitly search that directory first
+        // so the toolbar logo is not silently replaced by an empty view.
+        guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png", subdirectory: "Resources")
+                ?? Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png"),
               let image = NSImage(contentsOf: url) else {
             return nil
         }

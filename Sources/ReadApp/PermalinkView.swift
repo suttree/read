@@ -161,31 +161,11 @@ struct PermalinkView: View {
         .toolbar {
             PermalinkBrandToolbarItem(
                 goBack: { model.goBack() },
-                goHome: { model.goHome() }
+                goHome: { model.goHome() },
+                isRefreshing: model.isRefreshing,
+                refresh: { Task { await model.refresh() } },
+                settings: { model.isShowingSettings = true }
             )
-            ToolbarItem(placement: .automatic) {
-                if model.isRefreshing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 24, height: 20)
-                } else {
-                    Button {
-                        Task { await model.refresh() }
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .foregroundStyle(theme.headerInk)
-                    .disabled(model.sources.isEmpty)
-                }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    model.isShowingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .foregroundStyle(theme.headerInk)
-            }
         }
         .sheet(isPresented: $model.isShowingSettings) {
             SettingsView(model: model)
