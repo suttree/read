@@ -429,7 +429,8 @@ enum AppIconTheming {
     private static let storageKey = "ReadThemeIconVariant"
 
     private static let artwork: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png") else {
+        guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png", subdirectory: "Resources")
+                ?? Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png") else {
             return nil
         }
         return NSImage(contentsOf: url)
@@ -453,23 +454,22 @@ enum AppIconTheming {
     }
 
     static func themedIcon(_ theme: ReaderTheme, size: CGFloat = 512) -> NSImage? {
+        guard let artwork,
+              let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 1.0, in: NSSize(width: size, height: size)) else {
+            return nil
+        }
         let image = NSImage(size: NSSize(width: size, height: size))
         image.lockFocus()
         defer { image.unlockFocus() }
 
-        if let artwork,
-           // Fill the transparent canvas while retaining the source artwork's
-           // own clear margin around the candle.
-           let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 1.0, in: NSSize(width: size, height: size)) {
-            let drawRect = NSRect(
-                x: size / 2 - artworkImage.size.width / 2,
-                y: size / 2 - artworkImage.size.height / 2,
-                width: artworkImage.size.width,
-                height: artworkImage.size.height
-            )
-            artworkImage.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-        }
-
+        // Retain the source artwork's transparent margin around the candle.
+        let drawRect = NSRect(
+            x: size / 2 - artworkImage.size.width / 2,
+            y: size / 2 - artworkImage.size.height / 2,
+            width: artworkImage.size.width,
+            height: artworkImage.size.height
+        )
+        artworkImage.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1.0)
         return image
     }
 

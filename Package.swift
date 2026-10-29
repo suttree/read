@@ -23,6 +23,10 @@ let package = Package(
         .testTarget(
             name: "ReadCoreTests",
             dependencies: ["ReadCore"]
+        ),
+        .testTarget(
+            name: "ReadAppTests",
+            dependencies: ["ReadApp"]
         )
     ]
 )
