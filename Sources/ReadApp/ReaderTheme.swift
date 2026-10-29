@@ -428,6 +428,19 @@ private struct PolkaDotTexture: View {
 enum AppIconTheming {
     private static let storageKey = "ReadThemeIconVariant"
 
+    @MainActor
+    private static var appearanceObservation: NSKeyValueObservation?
+
+    @MainActor
+    static func observeAppearance() {
+        guard appearanceObservation == nil else { return }
+        appearanceObservation = NSApplication.shared.observe(\.effectiveAppearance, options: [.initial, .new]) { _, _ in
+            Task { @MainActor in
+                applyStoredSelection()
+            }
+        }
+    }
+
     private static let artwork: NSImage? = {
         guard let url = Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png", subdirectory: "Resources")
                 ?? Bundle.module.url(forResource: "AppIconArtwork", withExtension: "png") else {
@@ -438,7 +451,7 @@ enum AppIconTheming {
 
     @MainActor
     static func apply(_ theme: ReaderTheme) {
-        guard let image = themedIcon(theme) else {
+        guard let image = themedIcon(theme, appearance: NSApplication.shared.effectiveAppearance) else {
             return
         }
         NSApplication.shared.applicationIconImage = image
@@ -447,15 +460,14 @@ enum AppIconTheming {
 
     @MainActor
     static func applyStoredSelection() {
-        guard let stored = UserDefaults.standard.string(forKey: storageKey) else {
-            return
-        }
-        apply(ReaderTheme.named(stored))
+        let stored = UserDefaults.standard.string(forKey: storageKey)
+        apply(stored.map(ReaderTheme.named) ?? .standard)
     }
 
-    static func themedIcon(_ theme: ReaderTheme, size: CGFloat = 512) -> NSImage? {
+    static func themedIcon(_ theme: ReaderTheme, size: CGFloat = 512, appearance: NSAppearance? = nil) -> NSImage? {
+        let isDark = appearance?.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         guard let artwork,
-              let artworkImage = artworkImage(artwork, tint: theme.iconArtworkTint, fillFraction: 1.0, in: NSSize(width: size, height: size)) else {
+              let artworkImage = artworkImage(artwork, tint: isDark ? .white : theme.iconArtworkTint, fillFraction: 1.0, in: NSSize(width: size, height: size)) else {
             return nil
         }
         let image = NSImage(size: NSSize(width: size, height: size))

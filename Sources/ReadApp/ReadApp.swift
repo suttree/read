@@ -5,7 +5,7 @@ struct ReadApp: App {
     @StateObject private var model = ReadAppModel()
 
     init() {
-        AppIconTheming.applyStoredSelection()
+        AppIconTheming.observeAppearance()
     }
 
     var body: some Scene {
