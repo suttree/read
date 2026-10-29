@@ -212,12 +212,7 @@ struct PermalinkView: View {
         model.adjacentStory(to: story, offset: 1)
     }
 
-    /// j/k step to the next/previous story without returning to the list, x
-    /// flips the bolt — the same key that rates the selected card on the feed,
-    /// so rating is one key wherever you are — r toggles read/unread (opening
-    /// the story already marked it read; this is for undoing that), and Esc or
-    /// Backspace jumps straight back to the feed. A story's own page acts as a mini reading session rather than
-    /// a one-off page you always have to go back to the list from.
+    // Scrolling follows focus; article navigation is handled by the window.
     private func handleKeyPress(_ press: KeyPress, proxy: ScrollViewProxy) -> KeyPress.Result {
         if press.modifiers.contains(.command) {
             switch press.key {
@@ -236,31 +231,7 @@ struct PermalinkView: View {
             }
         }
 
-        switch press.characters {
-        case "j":
-            model.showAdjacentStory(from: story, offset: 1)
-            return .handled
-        case "k":
-            model.showAdjacentStory(from: story, offset: -1)
-            return .handled
-        case "x":
-            model.toggleRating(story)
-            return .handled
-        case "r":
-            model.toggleRead(story)
-            return .handled
-        default:
-            // Backspace reports as `.delete` (forward delete is
-            // `.deleteForward`), but some keyboard layouts deliver it as the
-            // raw control character with no key name attached, so both spellings
-            // are accepted rather than trusting one.
-            if press.key == .delete || press.key == .escape
-                || press.characters == "\u{8}" || press.characters == "\u{7F}" {
-                model.goBack()
-                return .handled
-            }
-            return .ignored
-        }
+        return .ignored
     }
 
     private func loadArticle() async {

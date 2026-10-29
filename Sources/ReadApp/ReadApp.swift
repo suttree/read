@@ -44,6 +44,7 @@ struct ContentView: View {
 
     var body: some View {
         navigation
+            .background(ArticleKeyboardShortcuts(model: model))
             .overlay {
                 if model.isRefreshing, !model.hasSkippedRefreshScreen {
                     RefreshScreen(
