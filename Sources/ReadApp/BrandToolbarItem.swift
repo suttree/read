@@ -27,13 +27,14 @@ struct BrandToolbarItem: ToolbarContent {
             BackPill(isEnabled: false) {}
         }
         ToolbarItem(placement: .principal) {
-            HeaderRow(goHome: goHome, isRefreshing: isRefreshing, refresh: refresh, settings: settings)
+            HomeCandleButton(action: goHome)
         }
+        HeaderActions(isRefreshing: isRefreshing, refresh: refresh, settings: settings)
     }
 }
 
-/// The permalink page's header: the active back link followed by Home. Built
-/// as one toolbar item so the two labels read as a single navigation group.
+/// Article navigation stays on the left, Home in the centre, and actions
+/// on the right, using the same placements as the feed.
 struct PermalinkBrandToolbarItem: ToolbarContent {
     let goBack: () -> Void
     let goHome: () -> Void
@@ -56,8 +57,9 @@ struct PermalinkBrandToolbarItem: ToolbarContent {
             BackPill(isEnabled: true, action: goBack)
         }
         ToolbarItem(placement: .principal) {
-            HeaderRow(goHome: goHome, isRefreshing: isRefreshing, refresh: refresh, settings: settings)
+            HomeCandleButton(action: goHome)
         }
+        HeaderActions(isRefreshing: isRefreshing, refresh: refresh, settings: settings)
     }
 }
 
@@ -120,17 +122,18 @@ private struct HomeCandleButton: View {
     }
 }
 
-private struct HeaderRow: View {
-    let goHome: () -> Void
+private struct HeaderActions: ToolbarContent {
     let isRefreshing: Bool
     let refresh: () -> Void
     let settings: () -> Void
 
-    var body: some View {
-        HStack(spacing: 8) {
-            Spacer(minLength: 0)
-            HomeCandleButton(action: goHome)
-            Spacer(minLength: 0)
+    var body: some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .primaryAction)
+        } else {
+            ToolbarItem(placement: .primaryAction) { Spacer() }
+        }
+        ToolbarItem(placement: .primaryAction) {
             if isRefreshing {
                 ProgressView()
                     .controlSize(.small)
@@ -142,12 +145,13 @@ private struct HeaderRow: View {
                 .buttonStyle(.plain)
                 .help("Refresh")
             }
+        }
+        ToolbarItem(placement: .primaryAction) {
             Button(action: settings) {
                 Label("Settings", systemImage: "gearshape")
             }
             .buttonStyle(.plain)
             .help("Settings")
         }
-        .frame(minWidth: 700, maxWidth: 1200)
     }
 }
