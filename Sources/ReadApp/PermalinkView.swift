@@ -56,6 +56,9 @@ struct PermalinkView: View {
 
                     if let article {
                         VStack(alignment: .leading, spacing: 18) {
+                            if let imageURL = leadImageURL {
+                                ArticleInlineImage(urlString: imageURL)
+                            }
                             ForEach(Array(article.blocks.enumerated()), id: \.offset) { _, block in
                                 switch block {
                                 case .paragraph(let text):
@@ -65,8 +68,8 @@ struct PermalinkView: View {
                                         .lineSpacing(7)
                                         .textSelection(.enabled)
                                         .embossedText()
-                                case .image(let imageURL):
-                                    ArticleInlineImage(urlString: imageURL)
+                                case .image:
+                                    EmptyView()
                                 }
                             }
                         }
@@ -116,38 +119,6 @@ struct PermalinkView: View {
             .padding(32)
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .top)
-            .background(alignment: .top) {
-                if let imageURL = article?.imageURL ?? story.imageURL,
-                   let url = URL(string: imageURL) {
-                    AsyncImage(url: url) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .saturation(0)
-                                .contrast(1.04)
-                                .opacity(0.18)
-                                .mask(
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .black, location: 0),
-                                            .init(color: .black.opacity(0.82), location: 0.25),
-                                            .init(color: .black.opacity(0.42), location: 0.5),
-                                            .init(color: .clear, location: 0.74),
-                                            .init(color: .clear, location: 1)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 420)
-                                .clipped()
-                        }
-                    }
-                    .allowsHitTesting(false)
-                }
-            }
             .focusable()
             .focusEffectDisabled()
             .focused($isFocused)
@@ -202,6 +173,13 @@ struct PermalinkView: View {
         DispatchQueue.main.async {
             isFocused = true
         }
+    }
+
+    private var leadImageURL: String? {
+        article?.imageURL ?? story.imageURL ?? article?.blocks.compactMap { block in
+            if case .image(let url) = block { return url }
+            return nil
+        }.first
     }
 
     private var previousStory: Story? {
