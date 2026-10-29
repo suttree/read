@@ -136,21 +136,29 @@ private struct HeaderActions: ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             if isRefreshing {
                 ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 24, height: 20)
+                    .controlSize(.regular)
+                    .frame(width: 36, height: 36)
             } else {
                 Button(action: refresh) {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 20))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Refresh")
                 .help("Refresh")
             }
         }
         ToolbarItem(placement: .primaryAction) {
             Button(action: settings) {
-                Label("Settings", systemImage: "gearshape")
+                Image(systemName: "gearshape")
+                    .font(.system(size: 20))
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
             .help("Settings")
         }
     }
